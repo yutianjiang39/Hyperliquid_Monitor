@@ -1,0 +1,7 @@
+# Tested direct dependencies. Python 3.10+; Python 3.11/3.12 recommended.
+requests==2.34.2
+boto3==1.43.123
+lz4==4.4.5
+textual==8.2.8
+rich==15.0.0
+

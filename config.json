@@ -1,0 +1,16 @@
+{
+  "version": "2.3.2",
+  "wallet": "",
+  "start_date_utc": "",
+  "end_date_utc": "",
+  "data_dir": "data",
+  "output_dir": "reports",
+  "chunk_size": 1000,
+  "incremental_api": true,
+  "aws": {
+    "profile": "",
+    "region": "us-east-1",
+    "max_download_gib": 10.0,
+    "max_objects": 0
+  }
+}

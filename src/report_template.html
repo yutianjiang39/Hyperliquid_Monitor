@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Hyperliquid · 钱包历史报告</title>
+<style>
+:root{--bg:#0a1117;--panel:#101b24;--panel2:#13222d;--line:#233440;--text:#e4edf3;--muted:#8da1ae;--mint:#6ee7c1;--red:#ff8997;--gold:#e8bf76;--blue:#88baf4;--radius:16px;font-family:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;font-synthesis:none;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-size:14px;line-height:1.55}button,input,select{font:inherit}button,a,input,select{outline-offset:4px}button,a{touch-action:manipulation}button{cursor:pointer}button:disabled{cursor:default;opacity:.38}a{color:var(--mint);text-decoration:none}a:hover{text-decoration:underline}.shell{max-width:1560px;margin:0 auto;padding:28px 34px 38px}.top{display:flex;justify-content:space-between;align-items:center;gap:18px;padding-bottom:22px;border-bottom:1px solid var(--line)}.brand{display:flex;align-items:center;gap:10px;letter-spacing:.08em;font-size:12px;font-weight:700}.mark{display:flex;gap:3px;align-items:center;height:22px}.mark i{display:block;width:5px;border-radius:3px;background:var(--mint)}.mark i:nth-child(1),.mark i:nth-child(4){height:10px}.mark i:nth-child(2),.mark i:nth-child(3){height:20px}.quiet{color:var(--muted)}.top-meta{display:flex;align-items:center;gap:14px;font-size:12px;color:var(--muted)}.offline{display:inline-flex;align-items:center;gap:6px}.offline:before{content:"";width:6px;height:6px;border-radius:50%;background:var(--mint)}.hero{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;padding:30px 0 24px}.eyebrow{font-size:11px;letter-spacing:.18em;color:var(--mint);margin-bottom:8px}.hero h1{font-size:30px;font-weight:650;letter-spacing:-.035em;line-height:1.25;margin:0 0 11px}.wallet{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:12px;flex-wrap:wrap}.mono{font-family:"SFMono-Regular",Consolas,monospace;font-variant-numeric:tabular-nums}.wallet-code{color:#b3c8d2;overflow-wrap:anywhere}.button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:36px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:#13202a;color:var(--text);font-size:12px;text-decoration:none!important}.button:hover{background:#1b2e3b;border-color:#3b5667}.button.primary{color:#07231c;background:var(--mint);border-color:var(--mint);font-weight:650}.button.ghost{background:none;color:var(--muted);min-height:26px;padding:3px 7px}.hero-actions{display:flex;gap:8px;flex-wrap:wrap}.coverage-banner{padding:13px 17px;border:1px solid #5a4930;background:#211e18;border-radius:11px;margin-bottom:20px;display:flex;align-items:flex-start;gap:11px;color:#dfcda8;font-size:12px}.coverage-banner .symbol{color:var(--gold);font-size:17px;line-height:1.3}.coverage-banner strong{color:#f1d7a8;font-weight:600}.coverage-banner button{padding:0;border:0;background:none;color:var(--gold);white-space:nowrap;font-size:12px;margin-left:auto}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}.metric{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;min-height:124px}.metric-label{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:10px}.metric-value{font-size:29px;letter-spacing:-.045em;margin:10px 0 5px;line-height:1.2;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.metric-note{font-size:11px;color:var(--muted)}.positive{color:var(--mint)}.negative{color:var(--red)}.unknown{color:var(--gold)}.overview{display:grid;grid-template-columns:minmax(0,2.3fr) minmax(250px,1fr);gap:18px;margin-bottom:26px}.panel{border:1px solid var(--line);background:var(--panel);border-radius:var(--radius);overflow:hidden}.panel-title{display:flex;justify-content:space-between;gap:12px;padding:19px 21px 0}.panel-title h2{font-size:13px;font-weight:600;margin:0}.panel-title p{font-size:11px;color:var(--muted);margin:4px 0 0}.chart-wrap{height:216px;padding:14px 16px 7px;position:relative}canvas{display:block;width:100%;height:100%}.chart-empty{display:none;position:absolute;inset:0;align-items:center;justify-content:center;text-align:center;color:var(--muted);font-size:12px}.legend{font-size:11px;color:var(--muted);display:flex;gap:6px;align-items:center;white-space:nowrap}.legend:before{content:"";display:block;width:17px;height:2px;background:var(--mint)}.scope-list{padding:10px 21px 12px}.scope-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #20313d;font-size:12px}.scope-item:last-child{border-bottom:0}.scope-item span:first-child{color:var(--muted)}.scope-item strong{font-size:13px;font-weight:550;font-variant-numeric:tabular-nums}.tabbar{display:flex;gap:26px;border-bottom:1px solid var(--line);overflow-x:auto;white-space:nowrap;margin-bottom:20px}.tab{border:0;background:none;color:var(--muted);padding:0 0 13px;font-size:14px;position:relative;display:flex;align-items:center;gap:7px}.tab.active{color:var(--text)}.tab.active:after{position:absolute;content:"";bottom:0;left:0;right:0;height:2px;background:var(--mint)}.count{border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}.toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px}.control{border:1px solid var(--line);background:#101c25;border-radius:8px;color:var(--text);height:36px;padding:0 11px;font-size:12px;max-width:100%;min-width:0}.search{width:240px;padding-left:12px}.search::placeholder{color:#6f8797}select.control{min-width:100px;padding-right:24px}input[type=date]{max-width:143px}.toolbar .spacer{flex:1}.filter-label{color:var(--muted);font-size:11px}.result-line{display:flex;align-items:center;gap:12px;justify-content:space-between;color:var(--muted);font-size:11px;margin-bottom:12px;min-height:18px}.result-line strong{color:#c2d1d9;font-weight:500}.engine-state{display:flex;align-items:center;gap:6px;white-space:nowrap}.engine-state:before{content:"";height:5px;width:5px;background:var(--mint);border-radius:100%}.progress{height:2px;background:#1b2a35;border-radius:2px;overflow:hidden;visibility:hidden;margin:0 0 8px}.progress.active{visibility:visible}.progress-bar{height:100%;width:0;background:var(--mint);transition:width .1s}.table-panel{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#0e1921}.table-scroll{overflow:auto;min-height:210px;max-height:670px;scrollbar-color:#385262 #101b24}table{border-collapse:collapse;width:100%;font-size:12px;white-space:nowrap}thead{background:#14232e;position:sticky;top:0;z-index:2}th{text-align:left;color:#8ea6b5;font-size:11px;font-weight:500;height:43px;padding:0 15px;border-bottom:1px solid var(--line)}td{height:57px;padding:8px 15px;border-bottom:1px solid #1d2c37;font-variant-numeric:tabular-nums}tbody tr:last-child td{border-bottom:0}tbody tr:hover{background:#14232e}th.num,td.num{text-align:right}td.coin{font-weight:600;letter-spacing:.01em}.subline{display:block;color:var(--muted);font-size:10px;margin-top:2px}.tag{display:inline-flex;border-radius:5px;padding:2px 6px;font-size:11px;align-items:center;gap:5px;background:#1b2b36;color:#bdd0dd}.tag.open,.tag.add,.tag.long{color:var(--mint);background:#18352f}.tag.reduce,.tag.close,.tag.short{color:var(--red);background:#3c2630}.tag.buy,.tag.sell{color:var(--blue);background:#1b3046}.tag.incomplete,.tag.unknown,.tag.interrupted{color:var(--gold);background:#3b3224}.tag.closed{color:#abc0ce}.tag.open{color:var(--mint)}.dot{height:5px;width:5px;border-radius:50%;background:currentColor}.empty{text-align:center!important;color:var(--muted);height:210px!important;font-size:13px}.empty strong{display:block;color:#bbd0db;font-size:14px;font-weight:500;margin-bottom:6px}.detail-button{background:none;border:1px solid var(--line);color:var(--muted);border-radius:5px;font-size:11px;padding:4px 7px}.detail-button:hover{color:var(--mint);border-color:#466b66}.pager{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:13px 16px;border-top:1px solid var(--line);background:#101b24;color:var(--muted);font-size:11px}.pager-left,.pager-right{display:flex;align-items:center;gap:8px}.pager select{height:28px;min-width:65px;padding-right:8px}.pager button{min-height:28px;padding:4px 9px}.page-input{height:28px;width:60px;text-align:center;border-radius:6px}.fineprint{font-size:11px;color:var(--muted);margin:12px 2px 0;line-height:1.7}.coverage-view{display:none}.coverage-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:18px}.coverage-box{padding:20px}.coverage-box h3{margin:0 0 12px;font-size:14px;font-weight:600}.coverage-box p{color:var(--muted);font-size:12px;line-height:1.8}.warning-item{padding:10px 12px;background:#241f18;border-left:2px solid var(--gold);border-radius:3px;margin:8px 0;font-size:12px;color:#d9c6a7;overflow-wrap:anywhere}.audit-json{font:11px/1.65 "SFMono-Regular",Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;background:#0a141c;border:1px solid var(--line);padding:14px;border-radius:8px;color:#a5bdca;max-height:480px;overflow:auto}.method-list{padding-left:17px;color:var(--muted);font-size:12px;line-height:1.85}.method-list li{margin:7px 0}.source-link{display:block;font-size:12px;margin:9px 0}.foot{margin-top:30px;padding-top:18px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:20px;color:#6f8796;font-size:10px;line-height:1.7}.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:30;background:#234039;color:#d1f5e8;border:1px solid #437568;border-radius:9px;padding:10px 17px;font-size:12px;max-width:90vw;display:none}.drawer-backdrop{position:fixed;inset:0;background:#050b10b8;z-index:40;display:none}.drawer{position:absolute;right:0;top:0;bottom:0;width:min(640px,100%);background:#101b24;border-left:1px solid var(--line);padding:24px;overflow:auto}.drawer-head{display:flex;justify-content:space-between;align-items:center;gap:15px}.drawer h2{font-size:18px;margin:0}.drawer p{font-size:12px;color:var(--muted)}.drawer pre{max-height:none;font-size:12px}.hide{display:none!important}.loading-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--mint);animation:pulse 1s infinite;margin-right:7px}@keyframes pulse{50%{opacity:.25}}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}@media(max-width:1000px){.shell{padding:22px}.overview{grid-template-columns:minmax(0,1.8fr) minmax(220px,1fr)}.metric{padding:17px}.metric-value{font-size:25px}.hero h1{font-size:27px}.coverage-grid{grid-template-columns:1fr}}@media(max-width:720px){.shell{padding:18px 14px}.top-meta .stamp{display:none}.hero{align-items:flex-start;flex-direction:column;padding:23px 0 18px;gap:14px}.hero h1{font-size:26px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.metric{min-height:114px;padding:15px}.metric-value{font-size:25px}.metric-note{font-size:10px}.overview{grid-template-columns:1fr;gap:12px}.overview .summary-panel{display:none}.coverage-banner{font-size:11px}.coverage-banner button{white-space:normal;min-width:42px}.tabbar{gap:20px}.tab{font-size:13px}.toolbar{gap:7px}.search{width:100%;order:-1}.toolbar .spacer{display:none}.control{font-size:11px}.filter-label{display:none}.result-line{align-items:flex-start}.engine-state{font-size:10px}.foot{flex-direction:column;gap:6px}.chart-wrap{height:200px}.panel-title{padding:16px 16px 0}.legend{display:none}.pager{padding:11px}.pager-right{gap:5px}.pager-left .label{display:none}}@media print{body{background:white;color:#123}.shell{max-width:none}.toolbar,.pager,.hero-actions,.detail-button,.drawer-backdrop,.top-meta{display:none!important}.panel,.metric,.table-panel{border-color:#ccc;background:#fff}.coverage-banner{background:#fff7e7;color:#654}.tabbar,.foot{color:#456}.table-scroll{max-height:none}.metric-label,.metric-note,.quiet,.subline,th,.fineprint{color:#567}.positive{color:#08775c}.negative{color:#b53b4d}}
+
+/* Four auditable, operation-level curves share a window and retain every point. */
+.curve-section{margin:0 0 28px}.curve-heading{display:flex;justify-content:space-between;gap:18px;align-items:flex-end;margin:24px 0 14px}.curve-heading h2{font-size:19px;font-weight:600;letter-spacing:-.02em;margin:0 0 4px}.curve-heading p{font-size:12px;color:var(--muted);margin:0}.curve-tags{display:flex;gap:7px;flex-wrap:wrap;font-size:10px;color:var(--mint)}.curve-tags span{padding:4px 8px;border:1px solid #30554c;border-radius:5px;background:#122a24}.curve-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:13px 15px;background:#101b24;border:1px solid var(--line);border-radius:12px 12px 0 0}.curve-toolbar label{display:flex;gap:7px;align-items:center;font-size:11px;color:var(--muted)}.curve-toolbar input[type=datetime-local]{width:191px;font-size:11px;min-width:0;padding:0 7px}.curve-toolbar .curve-spacer{flex:1}.curve-toolbar .control{height:32px}.curve-toolbar .button{min-height:32px;padding:5px 10px}.curve-status{font-size:11px;color:var(--muted);padding:9px 15px;border:1px solid var(--line);border-top:0;border-radius:0 0 12px 12px;background:#0e1921;line-height:1.8}.curve-toolbar .button[aria-pressed="true"]{border-color:var(--mint);color:var(--mint);background:#16352c}.curve-point-count{font-size:10px;color:var(--muted);padding:0 20px 8px;font-variant-numeric:tabular-nums}.curve-status strong{font-weight:500;color:#c6d7e0}.curve-error{color:var(--gold)!important}.curve-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:16px}.curve-card{overflow:visible;min-width:0}.curve-card .panel-title{align-items:flex-start;padding:19px 20px 0}.curve-card h3{margin:0;font-size:14px;font-weight:600}.curve-card .panel-title p{max-width:400px;line-height:1.8}.curve-card .panel-title select{min-width:128px;max-width:210px;height:31px;font-size:11px;flex:0 1 auto}.curve-card .curve-value{display:flex;align-items:baseline;gap:8px;margin:12px 20px 0;font-variant-numeric:tabular-nums;min-height:31px}.curve-value strong{font-size:24px;letter-spacing:-.035em;font-weight:550}.curve-value span{color:var(--muted);font-size:11px}.curve-card:nth-child(1) .curve-value strong{color:var(--mint)}.curve-card:nth-child(2) .curve-value strong{color:var(--blue)}.curve-card:nth-child(3) .curve-value strong{color:var(--gold)}.curve-card:nth-child(4) .curve-value strong{color:#c2a8f5}.curve-plot{height:235px;position:relative;margin:5px 10px 0}.curve-plot canvas{cursor:crosshair;touch-action:pan-y}.curve-empty{display:none;position:absolute;inset:14px 25px 32px 60px;align-items:center;justify-content:center;flex-direction:column;text-align:center;font-size:12px;line-height:1.85;color:var(--muted);pointer-events:none}.curve-empty strong{display:block;font-weight:500;color:#beccd5;margin-bottom:4px}.curve-crosshair{position:absolute;top:14px;bottom:30px;border-left:1px dashed #8196a8a6;pointer-events:none;display:none}.curve-dot{position:absolute;border:2px solid #101b24;width:9px;height:9px;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;display:none}.curve-readout{min-height:58px;margin:0 20px;padding:10px 0;border-top:1px solid #20313d;font-size:10px;color:var(--muted);line-height:1.8;overflow-wrap:anywhere}.curve-card-footer{display:flex;gap:10px;justify-content:space-between;align-items:flex-end;font-size:10px;padding:0 20px 16px;color:var(--muted)}.curve-card-footer p{margin:0;line-height:1.8;max-width:83%}.curve-card-footer a{white-space:nowrap;font-size:11px}.event-inspector{margin-top:16px;border:1px solid #334c5b;background:#111f29;border-radius:12px;padding:15px 17px}.event-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.event-nav h3{font-size:12px;margin:0 8px 0 0;font-weight:600}.event-nav .control{height:29px}.event-nav .button{min-height:29px;padding:4px 9px}.event-nav input{width:90px;text-align:center}.event-nav .event-counter{font-size:11px;color:var(--muted)}.event-caption{font-size:10px;color:var(--muted);margin-left:auto}.event-details{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:15px;padding-top:14px}.event-cell span{display:block;font-size:10px;color:var(--muted);margin-bottom:4px}.event-cell strong{display:block;font-size:12px;font-weight:500;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.event-quality{margin:11px 0 0;color:var(--gold);font-size:10px;line-height:1.8;overflow-wrap:anywhere}.curve-notes{margin-top:12px;padding:11px 14px;background:#1d1d19;border:1px solid #433c2b;border-radius:9px;font-size:11px;line-height:1.85;color:#d0bea0}.curve-notes summary{cursor:pointer;font-weight:500}.curve-notes ul{padding-left:18px;margin:8px 0 0}.curve-notes li{margin:4px 0}.scope-strip{display:flex;gap:22px;flex-wrap:wrap;font-size:11px;color:var(--muted);padding:14px 0 0}.scope-strip strong{color:#bed1dc;font-weight:500;margin-left:7px}.curve-export-all{font-size:11px;margin-left:auto}.curve-axis-note{font-size:10px;color:var(--muted);margin:8px 3px 0}.curve-plot:focus-within{outline:1px solid #507f73;border-radius:5px}.curve-plot canvas:focus{outline:0}@media(max-width:1000px){.curve-card .panel-title{flex-wrap:wrap}.curve-card .panel-title select{max-width:100%}.event-details{grid-template-columns:repeat(3,minmax(0,1fr))}.curve-toolbar .curve-spacer{display:none}.curve-heading{align-items:flex-start}.curve-toolbar label{flex-wrap:wrap}}@media(max-width:720px){.metric-value{font-size:clamp(19px,5.4vw,25px)}.curve-grid{grid-template-columns:1fr;gap:12px}.curve-plot{height:225px;margin-left:4px;margin-right:4px}.curve-heading{flex-direction:column;gap:8px}.curve-toolbar{gap:7px;padding:11px}.curve-toolbar label{font-size:10px}.curve-toolbar input[type=datetime-local]{width:174px}.curve-card .panel-title{flex-wrap:nowrap;padding:16px 15px 0}.curve-card .panel-title select{min-width:122px;max-width:48%;font-size:10px;padding-left:7px}.curve-card .curve-value{margin-left:15px}.curve-readout{margin-left:15px;margin-right:15px}.curve-card-footer{padding-left:15px;padding-right:15px}.curve-card-footer p{max-width:80%}.event-details{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.event-caption{width:100%;margin-left:0}.scope-strip{gap:10px 16px}.curve-export-all{margin-left:0}.curve-tags{font-size:9px}.curve-toolbar .control{font-size:10px}}@media print{.curve-toolbar,.event-nav .button,.event-nav input{display:none}.curve-grid{grid-template-columns:1fr 1fr}.curve-card,.event-inspector{break-inside:avoid}.curve-readout,.curve-card-footer{color:#456}}
+
+/* Statistics are derived from the visible values, with the original gaps intact. */
+.curve-stat-scope{font-size:10px;line-height:1.8;color:var(--muted);margin:9px 3px 0}
+.curve-card{display:flex;flex-direction:column}.curve-plot{height:250px;flex:none}.curve-card-footer{margin-top:auto;padding-top:7px}
+.curve-insights{margin:0 20px 12px;font-size:11px;line-height:1.75;min-width:0}
+.insight-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 7px;color:var(--muted);font-size:10px}
+.insight-heading strong{font-weight:550;color:#bdced8}.insight-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.insight-stat{display:block;min-width:0;text-align:left;border:1px solid #253845;border-radius:8px;background:#12222d;padding:9px 10px;color:var(--text);font:inherit}
+button.insight-stat:hover{border-color:#537581;background:#172b37}.insight-stat small{display:block;font-size:10px;line-height:1.5;color:var(--muted)}
+.insight-stat strong{display:block;font-size:14px;line-height:1.65;font-weight:550;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.insight-stat .negative{color:var(--red)}.insight-stat .positive{color:var(--mint)}
+.insight-legend{display:flex;gap:7px 15px;flex-wrap:wrap;margin:9px 0 5px;color:#a7bcca;font-size:10px}
+.insight-key{display:inline-flex;gap:6px;align-items:center}.insight-key i{display:inline-block;width:16px;flex:none}
+.insight-key i.dash{border-top:1px dashed var(--key-color,#a7bcca)}.insight-key i.band{height:7px;background:var(--key-color,#6d81a8);opacity:.38;border-radius:2px}
+.insight-note{font-size:10px;line-height:1.8;color:var(--muted);margin:6px 0 0;overflow-wrap:anywhere}
+.insight-empty{border:1px dashed #314753;border-radius:8px;padding:10px 12px;color:var(--muted);font-size:11px}
+.drawdown-list{display:grid;gap:6px;margin-top:9px}.drawdown-item{border:1px solid #35404b;border-left:2px solid var(--dd-color);border-radius:7px;background:#111e28;overflow:hidden}
+.drawdown-item summary{cursor:pointer;list-style:none;padding:8px 10px}.drawdown-item summary::-webkit-details-marker{display:none}
+.drawdown-top{display:flex;align-items:center;flex-wrap:wrap;gap:5px 7px;font-variant-numeric:tabular-nums}.drawdown-rank{font-size:10px;font-weight:650;color:var(--dd-color);flex:none}
+.drawdown-amount{font-size:12px;font-weight:550;color:var(--dd-color)}.drawdown-status{margin-left:auto;font-size:9px;color:#a6bfcc;white-space:nowrap}
+.drawdown-status.open,.drawdown-status.gap{color:var(--gold)}.drawdown-chevron{font-size:10px;color:var(--muted);transition:transform .15s}.drawdown-item[open] .drawdown-chevron{transform:rotate(90deg)}
+.drawdown-period{font-size:10px;color:var(--muted);margin-top:3px;overflow-wrap:anywhere;line-height:1.7}
+.drawdown-details{border-top:1px solid #273b47;padding:8px 10px 10px;color:var(--muted);font-size:10px}
+.drawdown-percent{font-size:12px;font-weight:650;color:var(--dd-color);white-space:nowrap}.drawdown-percent.unavailable{color:var(--muted)}.drawdown-capital-tag{font-size:9px;color:var(--muted);border:1px solid #354958;border-radius:4px;padding:0 4px;line-height:1.6}
+.drawdown-capital{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 9px;margin-top:10px;padding-top:8px;border-top:1px solid #273b47}.drawdown-capital strong{font-weight:550;color:var(--text);font-variant-numeric:tabular-nums}.drawdown-formula{margin:5px 0 0;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;line-height:1.8}.curve-card-large .drawdown-percent{font-size:14px}
+.drawdown-endpoints{display:grid;gap:6px}.drawdown-point{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.drawdown-point span:first-child{min-width:25px;color:#c2d3dd}.insight-link{border:0;background:none;padding:0;color:#a6cfea;text-align:left;font:inherit;text-decoration:underline;text-underline-offset:3px}
+.insight-link:hover{color:var(--mint)}.drawdown-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px;flex-wrap:wrap}.drawdown-actions .button{font-size:10px;min-height:26px;padding:3px 8px}
+@media(max-width:720px){.curve-insights{margin-left:15px;margin-right:15px}.insight-stat{padding:8px}.insight-stat strong{font-size:12px}.drawdown-period{font-size:9px}.curve-stat-scope{margin-left:2px;margin-right:2px}.curve-plot{height:245px}}
+@media print{.insight-stat,.drawdown-item{background:#fff;border-color:#ccc}.insight-stat strong,.insight-heading strong,.drawdown-amount{color:#234}.insight-note,.drawdown-period{color:#456}}
+/* Chart sizes reuse the original canvases, so the selected point and filters survive. */
+.curve-displaybar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:13px}.curve-displaybar p{margin:0;color:var(--muted);font-size:11px;line-height:1.7}.curve-displaybar .button{flex:none}.curve-displaybar .button[aria-pressed="true"],.curve-size-toggle[aria-pressed="true"]{border-color:#527a70;color:var(--mint);background:#16352c}
+.curve-card .curve-value{flex-wrap:wrap}.curve-size-toggle{margin-left:auto;flex:none;align-self:center;min-height:29px;padding:4px 9px;font-size:11px;letter-spacing:0}.curve-card.curve-card-large{grid-column:1/-1;border-color:#3a5965}.curve-card-large .curve-plot{height:clamp(460px,58vh,640px);margin:8px 16px 0}.curve-card-large .curve-value strong{font-size:31px}.curve-card-large .curve-point-count{font-size:11px}.curve-card-large .curve-readout{font-size:12px;min-height:64px}.curve-card-large .curve-card-footer{font-size:11px}.curve-card-large .curve-insights{font-size:12px}.curve-card-large .insight-heading{font-size:12px}.curve-card-large .insight-stat strong{font-size:17px}.curve-card-large .drawdown-amount{font-size:14px}.curve-card-large .drawdown-period,.curve-card-large .drawdown-details{font-size:12px}
+@media(max-width:720px){.curve-displaybar{align-items:flex-start;flex-wrap:wrap;gap:8px}.curve-displaybar p{font-size:10px;flex:1;min-width:150px}.curve-displaybar .button{font-size:11px;padding:6px 9px;min-height:32px}.curve-card-large .curve-plot{height:420px;margin:8px 4px 0}.curve-card-large .curve-value strong{font-size:26px}.curve-card-large .curve-readout,.curve-card-large .drawdown-period,.curve-card-large .drawdown-details{font-size:11px}}
+@media print{.curve-displaybar,.curve-size-toggle{display:none!important}.curve-card-large .curve-plot{height:380px}}
+</style>
+</head>
+<body>
+<main class="shell">
+  <header class="top">
+    <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span> HYPERLIQUID <span class="quiet">/ WALLET HISTORY</span></div>
+    <div class="top-meta"><span class="offline">离线报告</span><span class="stamp" id="generated"></span></div>
+  </header>
+  <section class="hero">
+    <div><div class="eyebrow">POSITION · PERFORMANCE · TRANSFERS</div><h1>钱包全历史分析</h1><div class="wallet"><span class="wallet-code mono" id="wallet"></span><button class="button ghost" id="copyWallet" title="复制钱包地址" aria-label="复制钱包地址">复制</button></div></div>
+    <div class="hero-actions"><a class="button" href="exports/coverage.json" download>覆盖范围 JSON ↗</a><a class="button primary" id="heroExport" href="exports/operations.csv" download>↓ 导出全部操作</a></div>
+  </section>
+  <div class="coverage-banner" role="note"><span class="symbol" aria-hidden="true">◇</span><div><strong>“全历史”是抓取目标，实际覆盖以数据来源为准。</strong><span id="coverageBrief"> 请先查看覆盖范围与缺口；未知盈亏不会按零处理。</span></div><button id="coverageShortcut">查看详情 →</button></div>
+  <section class="metrics" aria-label="核心指标">
+    <article class="metric"><div class="metric-label">交易操作 <span>记录</span></div><div class="metric-value" id="metricOps">—</div><div class="metric-note">反手成交拆为平仓、开仓两条操作</div></article>
+    <article class="metric"><div class="metric-label">已完整平仓 <span>生命周期</span></div><div class="metric-value" id="metricClosed">—</div><div class="metric-note" id="metricClosedNote">仅计入起止可还原的仓位</div></article>
+    <article class="metric"><div class="metric-label">成交已实现盈亏 <span>USDC</span></div><div class="metric-value" id="metricPnl">—</div><div class="metric-note" id="metricPnlNote">未扣手续费与资金费</div></article>
+    <article class="metric"><div class="metric-label">完整生命周期胜率 <span>扣交易费</span></div><div class="metric-value" id="metricWin">—</div><div class="metric-note" id="metricWinNote">仅含净盈亏可比较的完整已平仓</div></article>
+  </section>
+  <section class="curve-section" aria-label="逐笔盈亏、仓位、资产与参考杠杆曲线">
+    <div class="curve-heading"><div><h2>每一次操作，都留在曲线上</h2><p>每笔成交与资金变动同步查看；账面资产按流水重建，官方净值保留对照。</p></div><div class="curve-tags"><span>逐笔保留</span><span id="curveScopeTag">USDC 永续 · 含 HIP-3</span><span>离线可核对</span></div></div>
+    <div class="curve-toolbar">
+      <label>开始 · 北京时间 <input class="control" id="curveFrom" type="datetime-local" step="0.001" aria-label="曲线开始时间，北京时间"></label>
+      <label>结束 <input class="control" id="curveTo" type="datetime-local" step="0.001" aria-label="曲线结束时间，北京时间"></label>
+      <button class="button" id="curveApply">应用区间</button><button class="button" id="curveLast7" title="以报告最后数据时刻为终点的最近 7 天" aria-pressed="false">最近 7 天</button><button class="button" id="curveLast30" title="以报告最后数据时刻为终点的最近 30 天" aria-pressed="false">最近 30 天</button><button class="button" id="curveLast90" title="以报告最后数据时刻为终点的最近 90 天" aria-pressed="false">最近 90 天</button><button class="button" id="curveLast180" title="以报告最后数据时刻为终点的最近 180 天" aria-pressed="false">最近 180 天</button><button class="button" id="curveLast365" title="以报告最后数据时刻为终点的最近 365 天" aria-pressed="false">最近 365 天</button><button class="button" id="curveReset">全部</button>
+      <span class="curve-spacer"></span><button class="button" id="curveAnnotations" aria-pressed="true" title="显示或隐藏图上的区间色带、统计虚线和高低点；图下统计始终保留">图上标注 · 开</button><label>四图横轴 <select class="control" id="curveAxis"><option value="time">真实时间</option><option value="event">事件序号 · 展开同毫秒</option></select></label>
+    </div>
+    <div class="curve-status" id="curveStatus" role="status">正在读取逐笔曲线…</div>
+    <p class="curve-stat-scope">统计随当前时间区间与所选口径更新；中位数和分位带按有效事件 / 采样点等权计算（含 0，非时间加权）。</p>
+    <div class="curve-displaybar"><p id="curveSizeStatus" role="status">小图总览 · 可单独放大任意图表</p><button type="button" class="button" id="curveSizeAll" aria-controls="curveGrid" aria-pressed="false">四图切换大图</button></div>
+    <div class="curve-grid" id="curveGrid">
+      <article class="panel curve-card"><div class="panel-title"><div><h3>01 / 累计已实现盈亏</h3><p id="pnlBasisNote">每次减仓、清仓即时入账；不包含浮动盈亏。</p></div><select class="control" id="curvePnlBasis" aria-label="盈亏计算口径"><option value="gross_known">已知记录累计 · 未扣费</option><option value="net_known">已知记录累计 · 扣交易费</option><option value="gross_strict">完整连续累计 · 未扣费</option><option value="net_strict">完整连续累计 · 扣交易费</option></select></div><div class="curve-value"><strong id="curveValuePnl">—</strong><span>USDC</span></div><div class="curve-plot"><canvas id="pnlChart" tabindex="0" aria-label="逐笔累计已实现盈亏。左右方向键切换操作。" role="img"></canvas><div class="curve-crosshair" id="curveLinePnl"></div><div class="curve-dot" id="curveDotPnl"></div><div class="curve-empty" id="curveEmptyPnl"></div></div><div class="curve-point-count" id="curveCountPnl">等待数据</div><section class="curve-insights" id="curveInsightsPnl" aria-label="当前区间统计摘要"></section><div class="curve-readout" id="curveReadoutPnl">移动光标或点击下方“上一点 / 下一点”查看每笔变化。</div><div class="curve-card-footer"><p id="pnlFooterNote">已知记录累计仅累加已获取的已知盈亏；缺失贡献处断线，资金费独立统计。</p><a href="exports/event_curve.csv" download>逐笔 CSV ↓</a></div></article>
+      <article class="panel curve-card"><div class="panel-title"><div><h3>02 / 同时持仓规模</h3><p>各市场多仓与空仓绝对规模相加，不以多空抵消。</p></div><select class="control" id="curvePositionBasis" aria-label="仓位规模估值口径"><option value="entry">开仓成本口径</option><option value="trade">最近成交价估算</option></select></div><div class="curve-value"><strong id="curveValuePosition">—</strong><span>USDC</span></div><div class="curve-plot"><canvas id="positionChart" tabindex="0" aria-label="逐笔持仓规模。左右方向键切换操作。" role="img"></canvas><div class="curve-crosshair" id="curveLinePosition"></div><div class="curve-dot" id="curveDotPosition"></div><div class="curve-empty" id="curveEmptyPosition"></div></div><div class="curve-point-count" id="curveCountPosition">等待数据</div><section class="curve-insights" id="curveInsightsPosition" aria-label="当前区间统计摘要"></section><div class="curve-readout" id="curveReadoutPosition">开仓 / 加仓按成交价更新平均成本；减仓按原成本减少仓位。</div><div class="curve-card-footer"><p id="positionFooterNote">按平均开仓成本计量，随操作变化。历史缺口或成本未知处保留为空。</p><a href="exports/event_curve.csv" download>逐笔 CSV ↓</a></div></article>
+      <article class="panel curve-card"><div class="panel-title"><div><h3>03 / 账面资产与净值</h3><p id="equityBasisNote">按已知流水重建 USDC 账面余额；不含未实现盈亏。</p></div><select class="control" id="curveEquityBasis" aria-label="资产曲线口径"><option value="balance_known">账面余额 · 已知流水参考</option><option value="balance_strict">账面余额 · 连续可核对</option><option value="account">官方账户净值</option><option value="perp">官方永续净值</option></select></div><div class="curve-value"><strong id="curveValueEquity">—</strong><span id="curveEquityUnit">USDC · 账本重建参考</span></div><div class="curve-plot"><canvas id="equityChart" tabindex="0" aria-label="逐事件账面余额或官方净值。左右方向键切换数据点。" role="img"></canvas><div class="curve-crosshair" id="curveLineEquity"></div><div class="curve-dot" id="curveDotEquity"></div><div class="curve-empty" id="curveEmptyEquity"></div></div><div class="curve-point-count" id="curveCountEquity">等待数据</div><section class="curve-insights" id="curveInsightsEquity" aria-label="当前区间统计摘要"></section><div class="curve-readout" id="curveReadoutEquity">尚无可显示的采样。</div><div class="curve-card-footer"><p id="equityFooterNote">已知流水反推参考；历史缺项会影响余额。官方净值可在上方切换查看。</p><a id="equityCsv" href="exports/balance_curve.csv" download>资产 CSV ↓</a></div></article>
+      <article class="panel curve-card"><div class="panel-title"><div><h3>04 / 参考杠杆</h3><p id="leverageBasisNote">成本口径持仓规模 ÷ 最近的可用永续账户权益。</p></div><select class="control" id="curveLeverageBasis" aria-label="参考杠杆分母"><option value="balance_known">已知流水余额参考</option><option value="balance_strict">连续可核对余额</option><option value="official">官方净值采样</option></select></div><div class="curve-value"><strong id="curveValueLeverage">—</strong><span>倍</span></div><div class="curve-plot"><canvas id="leverageChart" tabindex="0" aria-label="参考杠杆。左右方向键切换曲线采样。" role="img"></canvas><div class="curve-crosshair" id="curveLineLeverage"></div><div class="curve-dot" id="curveDotLeverage"></div><div class="curve-empty" id="curveEmptyLeverage"></div></div><div class="curve-point-count" id="curveCountLeverage">等待数据</div><section class="curve-insights" id="curveInsightsLeverage" aria-label="当前区间统计摘要"></section><div class="curve-readout" id="curveReadoutLeverage">分母与所选账面余额口径一致；非正余额和未知仓位保留为空。</div><div class="curve-card-footer"><p id="leverageFooterNote">与仓位图共用估值口径。资产过期、权益 ≤ 0、仓位未知或账户口径不可比时留空。</p><a id="leverageCsv" href="exports/balance_leverage_curve.csv" download>杠杆 CSV ↓</a></div></article>
+    </div>
+    <p class="curve-axis-note" id="curveAxisNote">四图共用时间区间；事件序号展开同毫秒操作。最近 N 天以本报告最后一个数据时刻为终点；首次聚焦已观察成交区间，“全部”显示完整缓存范围。</p>
+    <section class="event-inspector" aria-label="逐笔操作查看器"><div class="event-nav"><h3>逐事件查看</h3><button class="button" id="curvePrev">← 上一点</button><label class="quiet" style="font-size:11px" for="curveEventIndex">区间内第</label><input class="control" id="curveEventIndex" type="number" min="1" step="1" value="1" aria-label="区间内事件序号"><span class="event-counter" id="curveEventCount">/ 0 笔</span><button class="button" id="curveNext">下一点 →</button><button class="button" id="curveFocus">放大附近</button><span class="event-caption">图上左右方向键逐点查看；成交、资金费、转账分别保留。</span></div><div class="event-details" id="curveEventDetails"><div class="event-cell"><span>操作详情</span><strong>尚无操作</strong></div></div><p class="event-quality" id="curveEventQuality"></p></section>
+    <details class="curve-notes" id="curveNotes"><summary id="curveNotesTitle">计算口径与数据覆盖</summary><ul id="curveNotesList"></ul></details>
+    <div class="scope-strip"><span>交易操作<strong id="scopeOps">—</strong></span><span>仓位生命周期<strong id="scopeCampaigns">—</strong></span><span>资金流水<strong id="scopeLedger">—</strong></span><span>资金费<strong id="scopeFunding">—</strong></span><a class="curve-export-all" href="exports/curves.json" download>完整曲线与口径 JSON ↓</a></div>
+  </section>
+  <nav class="tabbar" aria-label="报告分区" role="tablist"><button class="tab active" data-tab="operations" role="tab" aria-selected="true">操作历史 <span class="count" id="tabOps"></span></button><button class="tab" data-tab="campaigns" role="tab" aria-selected="false">已实现战绩 <span class="count" id="tabCampaigns"></span></button><button class="tab" data-tab="ledger" role="tab" aria-selected="false">资金流水 <span class="count" id="tabLedger"></span></button><button class="tab" data-tab="funding" role="tab" aria-selected="false">资金费 <span class="count" id="tabFunding"></span></button><button class="tab" data-tab="coverage" role="tab" aria-selected="false">数据覆盖 <span class="count" id="tabCoverage">!</span></button></nav>
+  <section id="dataView">
+    <div class="toolbar"><input class="control search" id="search" type="search" placeholder="搜索币种 / 订单 / Hash / 地址" aria-label="搜索全部记录"><select class="control" id="coin" aria-label="筛选币种"><option value="">全部币种</option></select><select class="control" id="kind" aria-label="筛选类型"><option value="">全部类型</option></select><span class="filter-label">日期</span><input class="control" id="dateFrom" type="date" aria-label="开始日期（北京时间）"><span class="filter-label">至</span><input class="control" id="dateTo" type="date" aria-label="结束日期（北京时间）"><select class="control" id="sort" aria-label="时间排序"><option value="desc">最新在前</option><option value="asc">最早在前</option></select><button class="button" id="reset">重置</button><span class="spacer"></span><a class="button" id="csvExport" href="exports/operations.csv" download>↓ 全部 CSV</a></div>
+    <div class="result-line"><div id="resultStatus" aria-live="polite">正在读取报告…</div><div class="engine-state" id="engineState">按需加载 · 每页 50 条</div></div><div class="progress" id="progress" aria-hidden="true"><div class="progress-bar" id="progressBar"></div></div>
+    <div class="table-panel"><div class="table-scroll" id="tableScroll"><table><thead id="tableHead"></thead><tbody id="tableBody"><tr><td class="empty">正在加载…</td></tr></tbody></table></div><div class="pager"><div class="pager-left"><span class="label">每页</span><select class="control" id="pageSize" aria-label="每页条数"><option value="25">25 条</option><option value="50" selected>50 条</option><option value="100">100 条</option></select><span id="pageRange">—</span></div><div class="pager-right"><button class="button" id="firstPage" aria-label="第一页">«</button><button class="button" id="prevPage">上一页</button><input class="control page-input" id="pageInput" type="number" min="1" value="1" aria-label="页码"><span id="pageTotal">/ 1</span><button class="button" id="nextPage">下一页</button><button class="button" id="lastPage" aria-label="最后一页">»</button></div></div></div>
+    <p class="fineprint" id="tableNote"></p>
+  </section>
+  <section class="coverage-view" id="coverageView">
+    <div class="coverage-grid"><article class="panel coverage-box"><h3>覆盖范围与待核对项</h3><p>本报告保留来源、抓取范围与缺失提示。请求已完成并不等于交易所或归档提供了钱包的每一条历史；请以以下记录为准。</p><div id="warningList"></div><pre class="audit-json" id="coverageJson"></pre><a class="button" href="exports/coverage.json" download>↓ 完整覆盖记录</a> <a class="button" href="exports/warnings.json" download>↓ 全部提示</a></article><article class="panel coverage-box"><h3>如何阅读战绩</h3><ol class="method-list"><li>“操作历史”来自成交。反手拆为平旧仓、开新仓；未成交委托与撤单不属于这个数据集。</li><li>“已实现战绩”保留完整平仓、仍持仓和历史不完整的生命周期。胜率只使用完整已平仓、净盈亏可比较的记录。</li><li>盈亏采用成交中的 closedPnl。未知值显示“未知”，不会被当作零；图表仅累计已知合约盈亏。</li><li>交易费和盈亏均保留计价币种。总览曲线仅汇总已知 USDC 盈亏；其他或未知计价币种不并入美元总额。没有统一估值的其他代币费用，不直接当作美元扣减。资金费在独立分区展示。</li><li>同名市场、现货、不同永续 DEX 应按数据中的市场标识核对；不把现货买卖拼成合约仓位。</li><li>所有表格时间显示为北京时间（UTC+8）。原始毫秒时间戳与数值精度保留在 CSV 和行详情中。</li></ol><h3 style="margin-top:24px">离线打开与导出</h3><p>完整解压后打开 <span class="mono">index.html</span>，并保留旁边的 <span class="mono">data</span> 和 <span class="mono">exports</span> 文件夹。页面按需读取分片，每页最多 100 行；首次全局筛选会显示扫描进度。</p><p>CSV 链接导出该数据集的全部已获取记录，不受当前页面筛选影响。报告不访问远程服务。</p><h3 style="margin-top:24px">官方参考</h3><a class="source-link" href="https://hyperliquid.gitbook.io/hyperliquid-docs/historical-data" target="_blank" rel="noopener noreferrer">历史归档与数据来源 ↗</a><a class="source-link" href="https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint" target="_blank" rel="noopener noreferrer">Info API 与成交字段 ↗</a><a class="source-link" href="https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/nodes/l1-data-schemas" target="_blank" rel="noopener noreferrer">节点数据结构 ↗</a><details style="margin-top:18px"><summary class="quiet" style="font-size:12px;cursor:pointer">查看计算摘要</summary><pre class="audit-json" id="summaryJson"></pre></details></article></div>
+  </section>
+  <footer class="foot"><span>HYPERLIQUID WALLET HISTORY · v2.3.2<br>从成交、仓位到资金流，让每一笔记录都能追溯。</span><span>数值展示经过格式化；精确数值请查看行详情或 CSV。<br>覆盖不足与字段未知均保留，不补造历史记录。</span></footer>
+</main>
+<div class="toast" id="toast" role="status"></div>
+<div class="drawer-backdrop" id="drawerBackdrop"><aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle"><div class="drawer-head"><h2 id="drawerTitle">记录详情</h2><button class="button" id="closeDrawer" aria-label="关闭详情">关闭 ✕</button></div><p>精确原始数值与审计字段；仅当前记录被载入。</p><pre class="audit-json" id="detailJson"></pre></aside></div>
+<script id="reportModel" type="application/json">__REPORT_MODEL_JSON__</script>
+<script src="data/curves.js"></script>
+<script src="data/chart_insights.js"></script>
+<script>
+'use strict';
+(() => {
+const MODEL = JSON.parse(document.getElementById('reportModel').textContent);
+const $ = id => document.getElementById(id);
+const esc = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtInt = value => new Intl.NumberFormat('zh-CN').format(value || 0);
+const formatTime = new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+const formatDate = new Intl.DateTimeFormat('zh-CN',{timeZone:'UTC',month:'2-digit',day:'2-digit'});
+const timeText = value => value && Number.isFinite(Number(value)) ? formatTime.format(new Date(Number(value))) : '未知';
+const numberText = (value, digits=4) => {
+  if(value === null || value === undefined || value === '') return '未知';
+  const n=Number(value); if(!Number.isFinite(n)) return String(value);
+  if(n!==0&&Math.abs(n)<1e-6) return n.toPrecision(4);
+  if(Math.abs(n)>1e15) return String(value);
+  return n.toLocaleString('en-US',{maximumFractionDigits:digits,minimumFractionDigits:0});
+};
+const signClass = value => value===null||value===undefined ? 'unknown' : Number(value)>0 ? 'positive' : Number(value)<0 ? 'negative' : 'quiet';
+const valueHtml = (value,digits=4,colored=false) => '<span class="'+(colored?signClass(value):value==null?'unknown':'')+'" title="'+esc(value??'未知')+'">'+esc(numberText(value,digits))+'</span>';
+const short = value => value ? (String(value).length>18?String(value).slice(0,9)+'…'+String(value).slice(-6):String(value)) : '—';
+const labels={open:'开仓 / 持仓',add:'加仓',reduce:'减仓',close:'清仓',buy:'现货买入',sell:'现货卖出',unknown:'未知',closed:'已平仓',interrupted:'历史中断',long:'做多',short:'做空',spot:'现货',deposit:'充值',withdraw:'提现',withdrawal:'提现',internalTransfer:'内部转账',spotTransfer:'现货转账',spotSend:'发送现货',accountClassTransfer:'现货 / 合约划转',vaultDeposit:'Vault 存入',vaultWithdraw:'Vault 提出',funding:'资金费',send:'发送',receive:'接收',in:'转入',out:'转出'};
+const kindLabel = (kind,tab) => kind==='open'?(tab==='operations'?'开仓':'持仓中'):(labels[kind]||kind);
+const directionText = row => row.direction_label || labels[row.direction] || row.direction || '未知';
+const feeText = map => map&&typeof map==='object'?Object.entries(map).map(([token,value])=>numberText(value,6)+' '+token).join(' · '):'未知';
+let toastTimer;
+function toast(message){$('toast').textContent=message;$('toast').style.display='block';clearTimeout(toastTimer);toastTimer=setTimeout(()=>{$('toast').style.display='none'},3200)}
+function initializeSummary(){
+ $('wallet').textContent=MODEL.wallet;$('generated').textContent='生成于 '+timeText(Date.parse(MODEL.generated));
+ const s=MODEL.stats;$('metricOps').textContent=fmtInt(s.operation_count);$('metricClosed').textContent=fmtInt(s.complete_campaigns);
+ $('metricClosedNote').textContent=s.incomplete_campaigns?fmtInt(s.incomplete_campaigns)+' 个生命周期存在历史缺口':s.open_campaigns?fmtInt(s.open_campaigns)+' 个生命周期仍持仓':'仅计入起止可还原的仓位';
+ $('metricPnl').textContent=numberText(s.closed_pnl,2);$('metricPnl').classList.add(signClass(s.closed_pnl));
+ $('metricPnlNote').textContent=(s.pnl_unknown_rows?'已知部分；'+fmtInt(s.pnl_unknown_rows)+' 条 USDC 盈亏未知':'未扣手续费与资金费')+(s.pnl_other_token_rows?' · 其他币种另列':'');
+ $('metricWin').textContent=s.win_rate==null?'—':numberText(s.win_rate,1)+'%';
+ $('metricWinNote').textContent=fmtInt(s.wins)+' 盈 / '+fmtInt(s.losses)+' 亏 · '+fmtInt(s.comparable_campaigns)+' 个可比样本';
+ for(const [name,suffix] of [['operations','Ops'],['campaigns','Campaigns'],['ledger','Ledger'],['funding','Funding']]){$('scope'+suffix).textContent=fmtInt(MODEL.datasets[name].count);$('tab'+suffix).textContent=fmtInt(MODEL.datasets[name].count)}
+ $('tabCoverage').textContent=MODEL.warningCount?fmtInt(MODEL.warningCount):'核对';
+ $('coverageBrief').textContent=MODEL.warningCount?' 当前有 '+fmtInt(MODEL.warningCount)+' 项提示，请先核对来源、缺口和未知字段。':' 请查看实际抓取范围；未知盈亏不会按零处理。';
+ $('coverageJson').textContent=JSON.stringify(MODEL.coverage,null,2);$('summaryJson').textContent=JSON.stringify(MODEL.summary,null,2);
+ $('warningList').innerHTML=MODEL.warnings.length?MODEL.warnings.map(w=>'<div class="warning-item">'+esc(w)+'</div>').join(''):'<p>没有额外解析警告；完整性仍以覆盖范围与来源记录为准。</p>';
+}
+
+// Both worker and cooperative fallback share exactly the same filter logic.
+function processorFactory(){
+ const cache=new Map();
+ function rowsFor(key,text){if(cache.has(key)){const rows=cache.get(key);cache.delete(key);cache.set(key,rows);return rows}const rows=JSON.parse(text);cache.set(key,rows);while(cache.size>6)cache.delete(cache.keys().next().value);return rows}
+ function matches(row,f){return (!f.coin||row._coin===f.coin)&&(!f.kind||row._kind===f.kind)&&(!f.from||row._time>=f.from)&&(!f.to||row._time<=f.to)&&(!f.words.length||f.words.every(word=>row._search.includes(word)))}
+ return {run(message){const rows=rowsFor(message.key,message.text);if(message.op==='filter'){const selected=[];for(let i=0;i<rows.length;i++)if(matches(rows[i],message.filters))selected.push(i);return {indices:new Uint32Array(selected)}}if(message.op==='take')return {rows:message.indices.map(index=>rows[index])};throw new Error('Unknown operation')},clear(){cache.clear()}};
+}
+const fallback=processorFactory();let worker=null,workerCounter=0;const workerPending=new Map();
+try{
+ const code='const processor=('+processorFactory.toString()+')();self.onmessage=e=>{try{const result=processor.run(e.data);const transfer=result.indices?[result.indices.buffer]:[];self.postMessage({id:e.data.id,...result},transfer)}catch(error){self.postMessage({id:e.data.id,error:String(error.message||error)})}};';
+ const url=URL.createObjectURL(new Blob([code],{type:'text/javascript'}));worker=new Worker(url);URL.revokeObjectURL(url);
+ worker.onmessage=e=>{const entry=workerPending.get(e.data.id);if(entry){workerPending.delete(e.data.id);e.data.error?entry.reject(new Error(e.data.error)):entry.resolve(e.data)}};
+ worker.onerror=()=>{for(const pending of workerPending.values())pending.reject(new Error('Worker unavailable'));workerPending.clear();worker.terminate();worker=null;updateEngine()};
+}catch(_){worker=null}
+const yieldUI=()=>new Promise(resolve=>setTimeout(resolve,0));
+async function processChunk(message){if(worker){try{return await new Promise((resolve,reject)=>{const id=++workerCounter;workerPending.set(id,{resolve,reject});worker.postMessage({id,...message})})}catch(error){if(worker)throw error}}await yieldUI();return fallback.run(message)}
+const rawCache=new Map(),loading=new Map();
+function putRaw(key,text){rawCache.delete(key);rawCache.set(key,text);while(rawCache.size>6)rawCache.delete(rawCache.keys().next().value)}
+window.__HL_RECEIVE__=(key,text)=>{const task=loading.get(key);putRaw(key,text);if(task){clearTimeout(task.timer);task.script.remove();loading.delete(key);task.resolve(text)}};
+function loadChunk(chunk){if(rawCache.has(chunk.id)){const text=rawCache.get(chunk.id);putRaw(chunk.id,text);return Promise.resolve(text)}if(loading.has(chunk.id))return loading.get(chunk.id).promise;let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b});const script=document.createElement('script');script.src=chunk.path;script.async=true;const fail=()=>{const task=loading.get(chunk.id);if(task){clearTimeout(task.timer);task.script.remove();loading.delete(chunk.id);reject(new Error('无法读取 '+chunk.path+'。请完整解压，并保留 data 文件夹。'))}};const timer=setTimeout(fail,15000);loading.set(chunk.id,{promise,resolve,reject,script,timer});script.onerror=fail;document.head.appendChild(script);return promise}
+const state={tab:'operations',page:1,pageSize:50,order:'desc',queryId:0,renderId:0,busy:false,total:0,matches:null,visibleRows:[]};
+function updateEngine(){$('engineState').textContent=(worker?'后台筛选':'分片筛选')+' · 每页 '+state.pageSize+' 条'}
+function criteria(){const from=$('dateFrom').value,to=$('dateTo').value;return {coin:$('coin').value,kind:$('kind').value,from:from?Date.parse(from+'T00:00:00+08:00'):0,to:to?Date.parse(to+'T23:59:59.999+08:00'):0,words:$('search').value.trim().toLowerCase().split(/\s+/).filter(Boolean)}}
+function hasFilter(f){return Boolean(f.coin||f.kind||f.from||f.to||f.words.length)}
+function chunkMayMatch(c,f){return (!f.from||c.maxTime>=f.from)&&(!f.to||c.minTime<=f.to)&&(!f.coin||!c.coins||c.coins.includes(f.coin))&&(!f.kind||c.kinds.includes(f.kind))}
+function sortedChunks(){const chunks=MODEL.datasets[state.tab].chunks;return state.order==='asc'?[...chunks].reverse():chunks}
+function setBusy(busy){state.busy=busy;$('progress').classList.toggle('active',busy);updatePager()}
+function showError(error){$('tableBody').innerHTML='<tr><td colspan="20" class="empty"><strong>明细暂时无法读取</strong>'+esc(error.message||error)+'</td></tr>';$('resultStatus').textContent='加载失败；数据不会被当作空记录。';setBusy(false)}
+async function startQuery(){
+ if(state.tab==='coverage')return;
+ const version=++state.queryId;state.renderId++;state.page=1;state.matches=null;state.total=0;const dataset=MODEL.datasets[state.tab];const f=criteria();
+ if(f.from&&f.to&&f.from>f.to){$('tableBody').innerHTML='<tr><td colspan="20" class="empty">开始日期不能晚于结束日期。</td></tr>';$('resultStatus').textContent='请调整日期范围';setBusy(false);return}
+ if(!hasFilter(f)){state.total=dataset.count;setBusy(false);await renderPage();return}
+ setBusy(true);$('progressBar').style.width='0%';$('tableBody').innerHTML='<tr><td colspan="20" class="empty"><span class="loading-dot"></span>正在跨全部记录筛选…<span class="subline">可以继续修改筛选条件，旧任务会自动取消。</span></td></tr>';
+ const results=[];let count=0,scanned=0;const chunks=sortedChunks();
+ try{for(const chunk of chunks){if(version!==state.queryId)return;if(chunkMayMatch(chunk,f)){const text=await loadChunk(chunk);if(version!==state.queryId)return;const result=await processChunk({op:'filter',key:chunk.id,text,filters:f});if(version!==state.queryId)return;if(result.indices.length){results.push({chunk,indices:result.indices});count+=result.indices.length}}scanned++;$('progressBar').style.width=(100*scanned/Math.max(1,chunks.length))+'%';$('resultStatus').textContent='扫描 '+scanned+' / '+chunks.length+' 个分片 · 已匹配 '+fmtInt(count)+' 条';if(!worker)await yieldUI()}if(version!==state.queryId)return;state.matches=results;state.total=count;setBusy(false);await renderPage()}catch(error){if(version===state.queryId)showError(error)}
+}
+function pagePlan(offset,limit){const plan=[];let skipped=0,remaining=limit;const entries=state.matches||sortedChunks().map(chunk=>({chunk,indices:null}));for(const entry of entries){const count=entry.indices?entry.indices.length:entry.chunk.count;if(skipped+count<=offset){skipped+=count;continue}const start=Math.max(0,offset-skipped),take=Math.min(count-start,remaining),indices=[];for(let i=start;i<start+take;i++){const position=state.order==='asc'?count-1-i:i;indices.push(entry.indices?entry.indices[position]:position)}if(take)plan.push({chunk:entry.chunk,indices});remaining-=take;skipped+=count;if(remaining<=0)break}return plan}
+const tableDefinitions={
+ operations:{headers:[['时间 · 北京时间'],['币种 / 市场'],['操作 / 方向'],['价格','num'],['数量','num'],['成交额','num'],['仓位变化','num'],['成交已实现盈亏','num'],['交易费','num'],['核对']],note:'成交额为价格 × 数量。盈亏采用成交 closedPnl，未扣手续费与资金费；反手拆分的两条操作共享成交标识。现货盈亏不并入合约战绩。'},
+ campaigns:{headers:[['开仓 / 平仓时间'],['币种 / 方向'],['状态'],['最大持仓','num'],['开仓 / 平仓成交额','num'],['已实现盈亏','num'],['费用（分币种）','num'],['净盈亏','num'],['成交 / 订单','num'],['核对']],note:'完整平仓才计入完整生命周期胜率。净盈亏仅扣与盈亏计价币种可比较的交易费，未含资金费；字段缺失或币种不可比时显示未知。开仓时间未知的残缺仓位不会补造开始时间。'},
+ ledger:{headers:[['时间 · 北京时间'],['流水类型'],['方向'],['金额','num'],['币种'],['关联地址'],['交易 Hash'],['来源 / 核对']],note:'资金流水包含充值、提现、划转、Vault 等已识别事件。金额和方向保持来源含义，不把所有流水简单相加当作净入金。'},
+ funding:{headers:[['时间 · 北京时间'],['市场'],['资金费收入','num'],['币种'],['资金费率','num'],['对应仓位','num'],['交易 Hash'],['核对']],note:'资金费独立展示，正负号保持来源字段含义。不会在无法确认仓位归属时强行分配给生命周期；不要与交易费混为一项。'}
+};
+function cell(value,cls=''){return '<td'+(cls?' class="'+cls+'"':'')+'>'+value+'</td>'}
+function detailCell(index){return '<button class="detail-button" data-detail="'+index+'">详情 ↗</button>'}
+function rowHtml(row,index){
+ const t=state.tab;
+ if(t==='operations')return '<tr>'+cell(esc(timeText(row.time))+'<span class="subline mono">'+esc(short(row.oid?('OID '+row.oid):row.hash))+'</span>')+cell(esc(row.coin||'未知')+'<span class="subline">'+esc(row.market_type==='spot'?'现货':row.market_type==='perp'?'永续合约':row.market_type||'市场待核对')+'</span>','coin')+cell('<span class="tag '+esc(row.action||'unknown')+'">'+esc(row.action_label||kindLabel(row.action,t))+'</span><span class="subline">'+esc(directionText(row))+'</span>')+cell(valueHtml(row.price,6),'num')+cell(valueHtml(row.size,6),'num')+cell(valueHtml(row.notional,2),'num')+cell(valueHtml(row.start_position,6)+' <span class="quiet">→</span> '+valueHtml(row.end_position,6),'num')+cell(valueHtml(row.closed_pnl,4,true)+'<span class="subline">'+esc(row.pnl_token||'计价未知')+'</span>','num')+cell(valueHtml(row.fee,6)+'<span class="subline">'+esc(row.fee_token||'币种未知')+'</span>','num')+cell(detailCell(index))+'</tr>';
+ if(t==='campaigns')return '<tr>'+cell(esc(timeText(row.open_time))+'<span class="subline">'+(row.close_time?esc(timeText(row.close_time)):'尚未平仓 / 结束未知')+'</span>')+cell(esc(row.coin||'未知')+'<span class="subline">'+esc(directionText(row))+'</span>','coin')+cell('<span class="tag '+esc(row.status||'unknown')+'">'+esc(kindLabel(row.status,t))+'</span>'+(row.complete===true||row.history_complete===true?'':'<span class="subline unknown">历史不完整</span>'))+cell(valueHtml(row.max_size,6),'num')+cell(valueHtml(row.entry_notional,2)+'<span class="subline">'+esc(numberText(row.exit_notional,2))+'</span>','num')+cell(valueHtml(row.closed_pnl,4,true)+'<span class="subline">'+esc(row.pnl_token||'计价未知')+'</span>','num')+cell(esc(feeText(row.fees_by_token)),'num')+cell(valueHtml(row.net_pnl,4,true)+'<span class="subline">'+esc(row.pnl_token||'计价未知')+'</span>','num')+cell(esc(fmtInt(row.fill_count))+' <span class="quiet">/</span> '+esc(fmtInt(row.order_count)),'num')+cell(detailCell(index))+'</tr>';
+ if(t==='ledger')return '<tr>'+cell(esc(timeText(row.time)))+cell('<span class="tag">'+esc(labels[row.type]||row.type||row.delta?.type||'未知')+'</span>')+cell(esc(labels[row.direction]||row.direction||'—'))+cell(valueHtml(row.amount,6),'num')+cell(esc(row.token||row.coin||'未知'),'coin')+cell('<span class="mono" title="'+esc(row.counterparty||'')+'">'+esc(short(row.counterparty))+'</span>')+cell('<span class="mono" title="'+esc(row.hash||'')+'">'+esc(short(row.hash))+'</span>')+cell(detailCell(index)+'<span class="subline">'+esc(row.source||'—')+'</span>')+'</tr>';
+ return '<tr>'+cell(esc(timeText(row.time)))+cell(esc(row.coin||'未知'),'coin')+cell(valueHtml(row.amount,6,true),'num')+cell(esc(row.token||'未知'))+cell(valueHtml(row.fundingRate,8),'num')+cell(valueHtml(row.szi,6),'num')+cell('<span class="mono" title="'+esc(row.hash||'')+'">'+esc(short(row.hash))+'</span>')+cell(detailCell(index))+'</tr>';
+}
+async function renderPage(){
+ const render=++state.renderId,version=state.queryId;const pageCount=Math.max(1,Math.ceil(state.total/state.pageSize));state.page=Math.min(pageCount,Math.max(1,state.page));updatePager();
+ const offset=(state.page-1)*state.pageSize;$('resultStatus').innerHTML='共 <strong>'+fmtInt(state.total)+'</strong> 条'+(state.matches?'匹配记录':'记录')+' · 时间均为北京时间';
+ if(!state.total){state.visibleRows=[];$('tableBody').innerHTML='<tr><td colspan="20" class="empty"><strong>暂无匹配记录</strong>可以调整筛选条件，或查看数据覆盖范围。</td></tr>';return}
+ $('tableBody').innerHTML='<tr><td colspan="20" class="empty"><span class="loading-dot"></span>正在读取当前页…</td></tr>';
+ try{const rows=[];for(const item of pagePlan(offset,state.pageSize)){const text=await loadChunk(item.chunk);if(render!==state.renderId||version!==state.queryId)return;const result=await processChunk({op:'take',key:item.chunk.id,text,indices:item.indices});if(render!==state.renderId||version!==state.queryId)return;rows.push(...result.rows)}state.visibleRows=rows;$('tableBody').innerHTML=rows.map(rowHtml).join('');$('tableScroll').scrollTop=0}catch(error){if(render===state.renderId&&version===state.queryId)showError(error)}
+}
+function updatePager(){const pages=Math.max(1,Math.ceil(state.total/state.pageSize));$('pageInput').value=state.page;$('pageInput').max=pages;$('pageTotal').textContent='/ '+fmtInt(pages);$('pageRange').textContent=state.total?fmtInt((state.page-1)*state.pageSize+1)+'–'+fmtInt(Math.min(state.page*state.pageSize,state.total))+' / '+fmtInt(state.total):'0 条';$('firstPage').disabled=$('prevPage').disabled=state.busy||state.page<=1;$('nextPage').disabled=$('lastPage').disabled=state.busy||state.page>=pages;$('pageInput').disabled=state.busy}
+function setPage(page){if(state.busy)return;state.page=page;renderPage()}
+function switchTab(tab){state.queryId++;state.renderId++;state.tab=tab;document.querySelectorAll('[data-tab]').forEach(button=>{const active=button.dataset.tab===tab;button.classList.toggle('active',active);button.setAttribute('aria-selected',String(active))});const coverage=tab==='coverage';$('dataView').style.display=coverage?'none':'';$('coverageView').style.display=coverage?'block':'none';if(coverage)return;const dataset=MODEL.datasets[tab];$('search').value='';$('coin').innerHTML='<option value="">全部币种</option>'+dataset.coins.map(coin=>'<option value="'+esc(coin)+'">'+esc(coin)+'</option>').join('');$('kind').innerHTML='<option value="">全部类型</option>'+dataset.kinds.map(kind=>'<option value="'+esc(kind)+'">'+esc(kindLabel(kind,tab))+'</option>').join('');$('dateFrom').value='';$('dateTo').value='';$('csvExport').href=dataset.csv;$('tableHead').innerHTML='<tr>'+tableDefinitions[tab].headers.map(([name,cls])=>'<th'+(cls?' class="'+cls+'"':'')+'>'+esc(name)+'</th>').join('')+'</tr>';$('tableNote').textContent=tableDefinitions[tab].note;startQuery()}
+function showDetail(index){const row=state.visibleRows[index];if(!row)return;const clean={};for(const [key,value]of Object.entries(row))if(!key.startsWith('_'))clean[key]=value;$('detailJson').textContent=JSON.stringify(clean,null,2);$('drawerBackdrop').style.display='block';$('closeDrawer').focus()}
+function closeDetail(){$('drawerBackdrop').style.display='none'}
+
+// Accounting and CSV/JSON exports retain Decimal strings. The compact browser
+// bundle uses Number only for drawing/readouts, never for ledger accounting.
+const CURVES=window.__HL_CURVES__||{event_curve:[],equity_curve:[],leverage_curve:[],warnings:['曲线文件未加载；请完整解压并保留 data/curves.js。'],summary:{}};
+const curveList=value=>Array.isArray(value)?value:[];
+const curveAllEvents=curveList(CURVES.event_curve);
+const curveAllEquity=curveList(CURVES.equity_curve);
+const curveAllLeverage=curveList(CURVES.leverage_curve);
+const curveAllBalances=curveList(CURVES.balance_curve);
+const curveAllBalanceLeverage=curveList(CURVES.balance_leverage_curve);
+const curveProvidedTimeline=curveList(CURVES.timeline_curve||CURVES.timeline);
+const curveTimeline=curveProvidedTimeline.length?curveProvidedTimeline:curveAllEvents;
+const curveTimelineHasBalance=curveTimeline.some(r=>Object.hasOwn(r,'balance')||Object.hasOwn(r,'balance_usdc'));
+const curveTimelineHasLeverage=curveTimeline.some(r=>Object.hasOwn(r,'observed_leverage_entry'));
+const curveState={from:0,to:0,events:[],selected:-1,charts:{},frame:0,rangeSource:'initial',annotations:true,insightsCache:{}};
+const curveNames=['Pnl','Position','Equity','Leverage'];
+const curveNativeOnly=CURVES.basis?.position_scope==='native';
+const curveScopeLabel=CURVES.basis?.scope_label||(curveNativeOnly?'已覆盖原生 USDC 永续':'已覆盖 USDC 永续（含 HIP-3）');
+const curveAccountDenominator=CURVES.basis?.reference_equity_scope==='account'||curveAllLeverage.some(r=>r.denominator_scope==='account');
+const curveIds={Pnl:'pnlChart',Position:'positionChart',Equity:'equityChart',Leverage:'leverageChart'};
+const curveColors={Pnl:'#6ee7c1',Position:'#88baf4',Equity:'#e8bf76',Leverage:'#c2a8f5'};
+const curveDate=new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
+const curveQualityNames={window_boundary:'报告区间起点',missing_start:'开仓历史缺失',missing_start_position:'成交前仓位未知',missing_entry_price:'开仓成本未知',position_discontinuity:'仓位历史不连续',missing_pnl:'当笔盈亏未知',missing_fee:'手续费未知',missing_fee_token:'手续费币种未知',unknown_fee_currency:'费用无法按 USDC 换算',unresolved_same_time_order:'同毫秒顺序待核对',duplicate_conflict:'成交来源字段冲突',stale_equity:'权益采样过期',missing_equity:'无可用权益采样',non_positive_equity:'权益不大于零',unsupported_scope:'账户范围不可比',legacy_trade_missing_pnl_fee:'归档缺少官方盈亏和手续费',position_unknown:'仓位未知',equity_sample_older_than_15m:'权益采样距事件已超过 15 分钟',position_history_not_updated:'操作历史未更新到此时刻',unknown_position:'持仓数量未知',position_resynchronized_without_entry:'重新接续仓位但成本未知',unknown_entry_basis:'平均开仓成本未知',ambiguous_position_record:'仓位记录有歧义',unobserved_starting_positions:'期初存在未观察到的持仓',position_gap_interval:'仓位历史缺口区间',entry_notional_incomplete:'成本口径仓位规模不完整',trade_notional_incomplete:'成交参考价规模不完整',unsupported_equity_scope:'账户资产范围不可比',covered_exposure_reference_ratio_only:'仅已覆盖永续敞口的参考倍数',missing_past_equity:'此前无可用权益采样',nonpositive_equity:'账户权益不大于零',missing_position_history:'缺少可用仓位历史',unknown_entry_notional:'成本口径规模未知',unknown_trade_notional:'成交参考价规模未知',last_trade_price_older_than_24h:'成交参考价格已超过 24 小时',unknown_pnl_contribution:'当笔盈亏贡献未知',unknown_or_non_usdc_fee:'手续费未知或无法按 USDC 换算',unknown_pnl_token:'盈亏计价币种未知',mixed_fee_tokens:'手续费币种不同，未汇兑',invalid_fill:'成交价格、数量、方向或时间无效',import_missing_start_position:'导入记录缺少成交前仓位',entry_inferred_from_realized_pnl:'成本由已实现盈亏和成交价反推',starting_position_reconstructed:'期初仓位由连续成交链恢复',missing_balance_anchor:'缺少可用余额基准点',unknown_components_between_anchor:'基准点与当前时刻之间有未知流水',history_coverage_unverified:'历史覆盖尚未完整核实',balance_nonpositive:'余额不大于零',nonpositive_balance:'余额不大于零',missing_balance:'账面余额未知',balance_estimate_only:'仅按已知流水重建的参考余额',same_timestamp_order_uncertain:'同毫秒流水顺序待核对',closed_pnl_reconstruction:'由已实现盈亏重建成本',entry_basis_reconstructed_from_closed_pnl:'开仓成本由成交与已实现盈亏恢复',entry_basis_uses_later_fill:'成本恢复使用后续成交核对',cash_ledger_reconstruction:'按USDC资金流水重建',cash_anchor_missing:'缺少可靠余额基准点',cash_anchor_unvalidated:'余额基准尚未验证',cash_anchors_do_not_reconcile:'多个余额基准未能对账',cash_anchor_newer_than_history:'余额基准晚于已完整收集的流水',nonpositive_cash_balance:"USDC账面余额不大于零",missing_cash_balance:"缺少USDC账面余额",before_available_fill_history:"早于已取得的成交历史",same_millisecond_cross_source_order_unknown:"同毫秒跨来源事件先后未确认",same_millisecond_operation_order_uncertain:"同毫秒成交先后未确认",withdraw_fee_convention_unverified:"提现手续费是否已含在金额内尚未确认",transfer_fee_convention_unverified:"转账手续费是否已含在金额内尚未确认",same_address_cash_transfer_cancelled:"同地址内部资金划转已抵消",lending_cash_not_net_assets:"借贷按现金流记录，非净资产变化",non_usdc_ledger_excluded:"非USDC流水未并入现金余额",non_usdc_staking_excluded:"非USDC质押变动未并入现金余额",derived_snapshot:"余额由账户分项快照推导",non_atomic_snapshot:"分项快照采集时间并不完全一致",anchor_estimate:"余额基准为估算值",paired_snapshot_change:"两轮余额快照存在差异",positions_changed_during_snapshot:"快照采集期间持仓发生变化",wide_snapshot_time_span:"分项快照的采集时间跨度较大"};
+function curveNum(value){if(value===null||value===undefined||value==='')return null;const n=Number(value);return Number.isFinite(n)?n:null}
+function curveLocalInput(stamp){return Number.isFinite(stamp)?new Date(stamp+8*3600000).toISOString().slice(0,23):''}
+function curveInputTime(value){if(!value)return null;const result=Date.parse(value+'+08:00');return Number.isFinite(result)?result:null}
+function curveTime(stamp){if(!Number.isFinite(Number(stamp)))return '未知';const n=Number(stamp);return timeText(n)+'.'+String(((n%1000)+1000)%1000).padStart(3,'0')}
+function curveAge(value){const n=curveNum(value);if(n===null)return '未知';if(n<1000)return Math.round(n)+' 毫秒';if(n<60000)return(n/1000).toFixed(1)+' 秒';if(n<3600000)return(n/60000).toFixed(1)+' 分钟';if(n<86400000)return(n/3600000).toFixed(1)+' 小时';return(n/86400000).toFixed(1)+' 天'}
+function curveQuality(row){return(Array.isArray(row?.quality)?row.quality:[]).map(x=>curveQualityNames[x]||x).join('；')}
+function curveIndexAt(rows,time,nearest=false){let l=0,r=rows.length;while(l<r){const m=(l+r)>>1;if(Number(rows[m].time)<=time)l=m+1;else r=m}const before=l-1;if(nearest&&l<rows.length&&(before<0||time-Number(rows[before].time)>Number(rows[l].time)-time))return l;return before}
+function curveBalanceValue(row,known=false){if(!row)return null;return known?(row.observed_balance??row.observed_balance_usdc??null):(row.balance??row.balance_usdc??null)}
+function curveEventType(row){return row?.event_type||row?.kind||row?.action||'unknown'}
+function curveIsTrade(row){const kind=curveEventType(row);return['open','add','reduce','close','buy','sell','fill','trade','operation'].includes(kind)}
+function curveEventLabel(row){const kind=curveEventType(row);if(kind==='boundary'||kind==='window_boundary')return '区间起点';if(kind==='operation')return row.action_label||labels[row.action]||'成交';if(kind==='ledger')return labels[row.ledger_type]||'资金流水';if(kind==='coverage_gap')return '流水覆盖边界';if(kind==='equity'||kind==='equity_sample'||kind==='portfolio')return '官方净值采样';if(kind==='anchor'||kind==='balance_anchor'||kind==='balance_snapshot')return '余额基准点';return labels[kind]||kind}
+function curveIsBalance(name){return name==='Equity'?$('curveEquityBasis').value.startsWith('balance'):$('curveLeverageBasis').value.startsWith('balance')}
+function curveKnownBalance(name){return(name==='Equity'?$('curveEquityBasis').value:$('curveLeverageBasis').value)==='balance_known'}
+function curveValueRaw(row,name){
+  if(!row)return null;
+  if(name==='Pnl'){
+    const basis=$('curvePnlBasis').value,net=basis.startsWith('net');
+    if(basis.endsWith('strict'))return row[net?'cumulative_net_pnl':'cumulative_closed_pnl'];
+    const contributes=curveIsTrade(row)&&(row.event_type?row.event_sequence!=null:row.market_type!=='spot');
+    if(contributes&&(curveNum(row.closed_pnl)===null||(net&&(curveNum(row.fee)===null||(curveNum(row.fee)!==0&&row.fee_token!=='USDC')))))return null;
+    return row[net?'observed_cumulative_net_pnl':'observed_cumulative_closed_pnl'];
+  }
+  if(name==='Position')return row[$('curvePositionBasis').value==='entry'?'gross_entry_notional':'gross_trade_notional'];
+  if(name==='Equity')return curveIsBalance(name)?curveBalanceValue(row,curveKnownBalance(name)):row[$('curveEquityBasis').value==='perp'?'perp_equity':'account_equity'];
+  const prefix=curveIsBalance(name)&&curveKnownBalance(name)?'observed_leverage_':'leverage_';
+  return row[prefix+($('curvePositionBasis').value==='entry'?'entry':'trade')];
+}
+function curveValue(row,name){return curveNum(curveValueRaw(row,name))}
+function curveRows(name){
+  if(name==='Pnl'||name==='Position')return curveState.events;
+  let rows;
+  if(name==='Equity'){
+    if(curveIsBalance(name))rows=curveTimelineHasBalance?curveTimeline:curveAllBalances;
+    else{const key=$('curveEquityBasis').value==='perp'?'perp_source':'account_source';rows=curveAllEquity.filter(r=>r[key]!=null)}
+  }else rows=curveIsBalance(name)?(curveTimelineHasLeverage?curveTimeline:curveAllBalanceLeverage):curveAllLeverage;
+  return rows.filter(r=>r.time>=curveState.from&&r.time<=curveState.to);
+}
+// A common event axis keeps all charts aligned, including equal-millisecond fills.
+const curveOperationRanks=new Map(),curveSequenceRanks=new Map(),curveGlobalRanks=new Map();
+for(let i=0;i<curveTimeline.length;i++){
+  const row=curveTimeline[i];
+  if(row.operation_id)curveOperationRanks.set(row.operation_id,i);
+  if(row.event_sequence!=null)curveSequenceRanks.set(row.time+':'+row.event_sequence,i);
+  else if(!curveProvidedTimeline.length&&row.sequence!=null)curveSequenceRanks.set(row.time+':'+row.sequence,i);
+  if(row.timeline_sequence!=null)curveGlobalRanks.set(row.timeline_sequence,i);
+}
+function curveRank(row){
+  if(!row)return -1;
+  if(row.timeline_sequence!=null&&curveGlobalRanks.has(row.timeline_sequence))return curveGlobalRanks.get(row.timeline_sequence);
+  if(row.operation_id&&curveOperationRanks.has(row.operation_id))return curveOperationRanks.get(row.operation_id);
+  if(row.event_sequence!=null&&curveSequenceRanks.has(row.time+':'+row.event_sequence))return curveSequenceRanks.get(row.time+':'+row.event_sequence);
+  return curveIndexAt(curveTimeline,Number(row.time));
+}
+function curveRowAtRank(rows,rank,time){let index=curveIndexAt(rows,time);while(index>=0&&Number(rows[index].time)===time&&curveRank(rows[index])>rank)index--;return index}
+function curveAxisNumber(v,name){if(name==='Leverage')return v.toLocaleString('en-US',{maximumFractionDigits:2})+'×';if(Math.abs(v)>=1e9)return(v/1e9).toFixed(1)+'b';if(Math.abs(v)>=1e6)return(v/1e6).toFixed(1)+'m';if(Math.abs(v)>=1e3)return(v/1e3).toFixed(1)+'k';return v.toLocaleString('en-US',{maximumFractionDigits:Math.abs(v)<1?3:1})}
+const curveDrawdownColors=['#ff8997','#e8bf76','#c2a8f5'];
+function curveInsightUnit(name){return name==='Leverage'?'倍':name==='Equity'&&!curveIsBalance(name)?'USD':'USDC'}
+function curveStatNumber(value,name){
+  if(value===null||value===undefined||!Number.isFinite(value))return '—';
+  const digits=name==='Leverage'?3:2,small=value!==0&&Math.abs(value)<10**-digits;
+  return numberText(value,small?Math.min(8,Math.ceil(-Math.log10(Math.abs(value)))+1):digits);
+}
+function curveInsightAxisNumber(value,name){return value!==0&&Math.abs(value)<.01?curveStatNumber(value,name)+(name==='Leverage'?'×':''):curveAxisNumber(value,name)}
+function curveDrawdownCapital(row){
+  // PnL and cash share the same after-event timeline row. A timestamp lookup
+  // could pick a later fill/transfer in the same millisecond, so never use one.
+  // The denominator is independent of the asset chart's display selection.
+  const strict=curveNum(curveBalanceValue(row,false));
+  if(strict!==null)return {value:strict,basis:'strict'};
+  const observed=curveNum(curveBalanceValue(row,true));
+  return {value:observed,basis:observed===null?'unknown':'known'};
+}
+function curveDrawdownPercent(episode,signed=true){
+  const value=episode?.percentage;
+  return value===null||value===undefined||!Number.isFinite(value)?'—':(signed?'−':'')+curveStatNumber(value,'Pnl')+'%';
+}
+function curveAnalyze(name,rows){
+  const basis=name==='Pnl'?$('curvePnlBasis').value:name==='Position'?$('curvePositionBasis').value:name==='Equity'?$('curveEquityBasis').value:$('curvePositionBasis').value+':'+$('curveLeverageBasis').value;
+  const key=[curveState.from,curveState.to,basis,rows.length].join('|'),cached=curveState.insightsCache[name];
+  if(cached?.key===key)return cached.value;
+  if(!window.HLChartInsights)return null;
+  const points=rows.map((row,index)=>({value:curveValue(row,name),time:Number(row.time),rank:curveRank(row),index}));
+  const options={limit:3};
+  if(name==='Pnl')options.capitalOf=(_point,index)=>curveDrawdownCapital(rows[index]).value;
+  const value=window.HLChartInsights.analyze(points,options);
+  if(name==='Pnl')for(const episode of value.drawdowns)episode.peakCapitalBasis=curveDrawdownCapital(rows[episode.peak.index]).basis;
+  curveState.insightsCache[name]={key,value};return value;
+}
+function curveStatCard(name,label,value,point=null,tone=''){
+  const unit=curveInsightUnit(name),tag=point?'button':'div';
+  const action=point?' type="button" data-insight-chart="'+name+'" data-insight-point="'+point.index+'" title="定位 '+esc(curveTime(point.time))+' · '+esc(curveStatNumber(point.value,name))+' '+unit+'"':'';
+  return '<'+tag+' class="insight-stat"'+action+'><small>'+esc(label)+(point?' ↗':'')+'</small><strong class="'+tone+'">'+esc(curveStatNumber(value,name))+'</strong><small>'+unit+'</small></'+tag+'>';
+}
+function curveKey(label,kind,color){return '<span class="insight-key"><i class="'+kind+'" style="--key-color:'+color+'" aria-hidden="true"></i>'+esc(label)+'</span>'}
+function curveDrawdownDetails(episode,index){
+  const status=episode.status==='recovered'?'已恢复':episode.status==='gap'?'缺口截断 · 恢复未知':'区间末未恢复';
+  const shortTime=point=>curveDate.format(new Date(point.time)).replace(/\//g,'-');
+  const endpoint=(label,point)=>'<div class="drawdown-point"><span>'+label+'</span><button type="button" class="insight-link" data-insight-chart="Pnl" data-insight-point="'+point.index+'">'+esc(curveTime(point.time))+' · #'+(point.rank+1)+'</button><span>'+esc(curveStatNumber(point.value,'Pnl'))+' USDC</span></div>';
+  const recovery=episode.recovery?endpoint('恢复',episode.recovery):'<div class="drawdown-point"><span>截至</span><span>'+esc(curveTime(episode.end.time))+' · '+status+'</span></div>';
+  const elapsed=episode.status==='recovered'?'谷底至恢复 '+curveAge(episode.recoveryMs):'峰值至末个有效点 '+curveAge(episode.underwaterMs);
+  const hasPercent=episode.percentage!==null&&Number.isFinite(episode.percentage);
+  const capitalBasis=episode.peakCapitalBasis==='strict'?'连续可核对账面资金':episode.peakCapitalBasis==='known'?'已知流水重建 · 参考':'资金数据缺失';
+  const reason=episode.peakCapital===null?'峰值时资金未知':episode.peakCapital<=0?'峰值时资金不大于零':'数值超出可计算范围';
+  const percentage='<strong class="drawdown-percent'+(hasPercent?'':' unavailable')+'" title="'+esc(hasPercent?'回撤金额 ÷ 峰值时资金 × 100%；'+capitalBasis:reason+'，百分比不计算')+'">'+esc(curveDrawdownPercent(episode))+'</strong>'+(hasPercent&&episode.peakCapitalBasis==='known'?'<span class="drawdown-capital-tag">参考</span>':'');
+  const capital='<div class="drawdown-capital"><span>峰值时资金</span><strong>'+esc(curveStatNumber(episode.peakCapital,'Pnl'))+(episode.peakCapital===null?'':' USDC')+'</strong><span>'+capitalBasis+'</span></div>';
+  const formula=hasPercent?esc(curveStatNumber(episode.amount,'Pnl'))+' ÷ '+esc(curveStatNumber(episode.peakCapital,'Pnl'))+' × 100% = '+esc(curveDrawdownPercent(episode,false)):reason+'，仅展示回撤金额。';
+  return '<details class="drawdown-item" data-drawdown-rank="'+(index+1)+'" style="--dd-color:'+curveDrawdownColors[index]+'"><summary><div class="drawdown-top"><span class="drawdown-rank">#'+(index+1)+'</span><strong class="drawdown-amount">−'+esc(curveStatNumber(episode.amount,'Pnl'))+' USDC</strong>'+percentage+'<span class="drawdown-status '+episode.status+'">'+status+'</span><span class="drawdown-chevron" aria-hidden="true">›</span></div><div class="drawdown-period">峰 '+esc(shortTime(episode.peak))+' → 谷 '+esc(shortTime(episode.trough))+' · 下跌 '+esc(curveAge(episode.declineMs))+'</div></summary><div class="drawdown-details"><div class="drawdown-endpoints">'+endpoint('峰值',episode.peak)+endpoint('谷底',episode.trough)+recovery+'</div>'+capital+'<p class="drawdown-formula">'+formula+'</p><div class="drawdown-actions"><span>'+esc(elapsed)+'</span><button type="button" class="button" data-insight-drawdown="'+index+'">放大这段区间 ↗</button></div></div></details>';
+}
+function curveRenderInsights(name,stats){
+  const container=$('curveInsights'+name);
+  if(!stats){container.innerHTML='<div class="insight-empty">统计文件未加载，请完整保留报告的 data 文件夹。</div>';return}
+  if(!stats.count){container.innerHTML='<div class="insight-empty">当前区间无有效点，暂不计算中位数、极值或回撤。</div>';return}
+  const openRanks=new Set([...container.querySelectorAll('details[open]')].map(item=>item.dataset.drawdownRank));
+  const heading='<div class="insight-heading"><strong>当前区间 · '+(name==='Pnl'?'独立回撤排名':'统计参考')+'</strong><span>'+fmtInt(stats.count)+' 个有效点</span></div>';
+  const unit=curveInsightUnit(name),median='中位数 '+curveStatNumber(stats.median,name)+(name==='Leverage'?'×':' '+unit);
+  let cards='',legend='',body='';
+  if(name==='Pnl'){
+    const worst=stats.drawdowns[0];
+    cards=curveStatCard(name,'最大回撤金额',worst?.amount??0,worst?.trough??null,worst?'negative':'')+curveStatCard(name,'累计盈亏高点',stats.max.value,stats.max)+'<div class="insight-stat"><small>独立回撤</small><strong>'+fmtInt(stats.drawdownCount)+'</strong><small>段 · 显示前 '+stats.drawdowns.length+' 段</small></div>';
+    legend=curveKey('深色：峰值 → 谷底','band','#ff8997')+curveKey('浅色：谷底 → 恢复 / 末点','band','#866575');
+    body=stats.drawdowns.length?'<div class="drawdown-list">'+stats.drawdowns.map(curveDrawdownDetails).join('')+'</div>':'<p class="insight-note">当前连续有效片段内未出现回撤'+(stats.count===1?'（只有一个有效点）':'')+'。</p>';
+    body+='<p class="insight-note">回撤百分比 = 峰谷亏损金额 ÷ 该段峰值时的 USDC 账面资金 × 100%。分母固定在该段起点，不含浮盈亏；可核对余额缺失时使用已知流水参考，资金未知或不大于零时不计算。</p>';
+    body+='<p class="insight-note">按峰谷差额排序；同一轮回撤不重复计数。点击条目查看峰值时资金、计算式、日期与恢复耗时并定位。'+(stats.drawdowns.length&&stats.drawdowns.length<3?'当前仅有 '+stats.drawdowns.length+' 段，不补足三段。':'')+'区间外峰值不追溯，遇缺口重新起算。</p>';
+  }else if(name==='Equity'){
+    const delta=stats.count>1?stats.last.value-stats.first.value:null;
+    cards=curveStatCard(name,'区间低点',stats.min.value,stats.min)+curveStatCard(name,'区间高点',stats.max.value,stats.max)+curveStatCard(name,'首末有效点差额',delta,null,delta>0?'positive':delta<0?'negative':'');
+    legend=curveKey(median,'dash',curveColors[name]);
+    body='<p class="insight-note">首末点：'+esc(curveTime(stats.first.time))+' → '+esc(curveTime(stats.last.time))+'。'+(stats.count<2?'仅一个有效点，差额不计算。':'差额包含出入金等影响，不作为投资收益。')+(stats.segmentCount>1?'跨缺口首末差额仅作端点对照。':'')+'</p>';
+  }else{
+    cards=curveStatCard(name,name==='Leverage'?'中位杠杆':'中位规模',stats.median)+curveStatCard(name,name==='Leverage'?'峰值杠杆':'峰值规模',stats.max.value,stats.max)+curveStatCard(name,'Q3 · 75% 分位',stats.q3);
+    legend=curveKey(median,'dash',curveColors[name])+curveKey('Q1–Q3 分位带','band',curveColors[name]);
+    body='<p class="insight-note">Q1–Q3：'+esc(curveStatNumber(stats.q1,name))+' – '+esc(curveStatNumber(stats.q3,name))+' '+unit+'。峰值出现在 '+esc(curveTime(stats.max.time))+'；点击峰值卡片定位。'+(stats.count<2?'仅一个有效点，分位数重合。':stats.q1===stats.q3?'Q1 与 Q3 重合，分位带收合为同一水平。':'')+'</p>';
+  }
+  container.innerHTML=heading+'<div class="insight-stats">'+cards+'</div><div class="insight-legend">'+legend+'</div>'+body;
+  for(const item of container.querySelectorAll('details'))if(openRanks.has(item.dataset.drawdownRank))item.open=true;
+}
+function curveLocateInsight(name,index,focus=true){
+  const chart=curveState.charts[name],row=chart?.rows[index];if(!row)return;
+  const time=Number(row.time),eventIndex=curveRowAtRank(curveState.events,curveRank(row),time);
+  if(eventIndex>=0)curveShowEvent(eventIndex);
+  else curveShowSampleWithoutEvent(time);
+  curveSync(time,name,index);
+  if(focus)$(curveIds[name]).focus({preventScroll:true});
+}
+function curveInsightClick(event){
+  const point=event.target.closest('[data-insight-point]');
+  if(point){curveLocateInsight(point.dataset.insightChart,Number(point.dataset.insightPoint));return}
+  const zoom=event.target.closest('[data-insight-drawdown]');if(!zoom)return;
+  const episode=curveState.charts.Pnl?.insights?.drawdowns[Number(zoom.dataset.insightDrawdown)];if(!episode)return;
+  // Save the row identity before the range changes; milliseconds alone cannot
+  // identify a particular fill among several equal-time events.
+  const target=curveState.charts.Pnl.rows[episode.trough.index],span=episode.end.time-episode.peak.time;
+  const padding=Math.max(1,Math.ceil(span*.06)),bounds=curveBounds();
+  curveSetRange(Math.max(bounds[0],episode.peak.time-padding),Math.min(bounds[1],episode.end.time+padding),'drawdown');
+  curveLocateInsight('Pnl',curveState.charts.Pnl.rows.indexOf(target));
+  $(curveIds.Pnl).scrollIntoView({block:'center',behavior:'auto'});
+}
+function curveDrawInsightUnderlay(name,ctx,chart){
+  const stats=chart.insights;if(!curveState.annotations||!stats?.count)return;
+  const {left,top,cw,ch,x,y}=chart;ctx.save();ctx.beginPath();ctx.rect(left,top,cw,ch);ctx.clip();
+  if(name==='Pnl'){
+    stats.drawdowns.forEach((episode,index)=>{
+      const peak=x(episode.peak.index),trough=x(episode.trough.index),end=x(episode.end.index);
+      ctx.fillStyle=curveDrawdownColors[index];ctx.globalAlpha=.12;ctx.fillRect(peak,top,Math.max(1,trough-peak),ch);
+      ctx.globalAlpha=.045;ctx.fillRect(trough,top,Math.max(0,end-trough),ch);
+    });
+  }else if((name==='Position'||name==='Leverage')&&stats.q3>stats.q1){
+    ctx.fillStyle=curveColors[name];ctx.globalAlpha=.09;ctx.fillRect(left,y(stats.q3),cw,y(stats.q1)-y(stats.q3));
+  }
+  ctx.restore();
+}
+function curveDrawInsightOverlay(name,ctx,chart){
+  const stats=chart.insights;if(!curveState.annotations||!stats?.count)return;
+  const {left,top,cw,ch,w,right,x,y}=chart,occupied=[];
+  ctx.save();ctx.font=(chart.large?'12':'10')+'px system-ui';ctx.textBaseline='middle';
+  const clamp=(value,low,high)=>Math.max(low,Math.min(high,value));
+  // Labels remain inside the plot and try several placements before omission.
+  // Exact values and keyboard-accessible endpoints always remain in the cards.
+  function badge(text,px,py,color,avoid=false){
+    const width=ctx.measureText(text).width+10,height=chart.large?21:17;
+    if(width>cw)return;
+    let box=null;
+    for(const [dx,dy] of [[7,-22],[7,7],[-width-7,-22],[-width-7,7],[7,-43]]){
+      const bx=clamp(px+dx,left+2,w-right-width-2),by=clamp(py+dy,top+2,top+ch-height-2);
+      const candidate={x:bx,y:by,w:width,h:height};
+      if(!occupied.some(old=>bx<old.x+old.w+3&&bx+width+3>old.x&&by<old.y+old.h+3&&by+height+3>old.y)){box=candidate;break}
+    }
+    if(!box){if(avoid)return;box={x:clamp(px+7,left+2,w-right-width-2),y:clamp(py-22,top+2,top+ch-height-2),w:width,h:height}}
+    occupied.push(box);ctx.fillStyle='#101b24';ctx.globalAlpha=.94;ctx.fillRect(box.x,box.y,box.w,box.h);ctx.globalAlpha=1;
+    ctx.fillStyle=color;ctx.textAlign='left';ctx.fillText(text,box.x+5,box.y+height/2);
+  }
+  function marker(point,color,filled=true){
+    const px=x(point.index),py=y(point.value);
+    if(!Number.isFinite(px)||!Number.isFinite(py)||px<left-.1||px>left+cw+.1)return null;
+    ctx.beginPath();ctx.arc(px,py,chart.large?4:3.3,0,Math.PI*2);
+    ctx.fillStyle=filled?color:'#101b24';ctx.fill();ctx.strokeStyle=color;ctx.lineWidth=1.3;ctx.setLineDash([]);ctx.stroke();
+    return[px,py];
+  }
+  function reference(value,label,color){
+    const py=y(value);if(py<top||py>top+ch)return;
+    ctx.strokeStyle=color;ctx.lineWidth=1;ctx.setLineDash([5,4]);ctx.globalAlpha=.75;ctx.beginPath();ctx.moveTo(left,py);ctx.lineTo(left+cw,py);ctx.stroke();ctx.globalAlpha=1;ctx.setLineDash([]);
+    const width=ctx.measureText(label).width+10;badge(label,w-right-width-7,py,color,true);
+  }
+  if(name==='Pnl'){
+    reference(0,'零盈亏','#7f98a8');
+    stats.drawdowns.forEach((episode,index)=>{
+      const color=curveDrawdownColors[index],peakX=x(episode.peak.index),endX=x(episode.end.index),lane=(chart.large?12:10)+index*(chart.large?14:11);
+      ctx.strokeStyle=color;ctx.lineWidth=1.4;ctx.setLineDash([3,3]);ctx.beginPath();ctx.moveTo(peakX,lane);ctx.lineTo(endX,lane);ctx.stroke();ctx.setLineDash([]);
+      ctx.fillStyle=color;ctx.textAlign='left';ctx.fillText('#'+(index+1),clamp(peakX+3,left,w-right-20),lane-3);
+      marker(episode.peak,color,false);const troughMarker=marker(episode.trough,color,true);
+      if(episode.recovery)marker(episode.recovery,color,false);
+      if(troughMarker)badge('#'+(index+1)+' −'+curveInsightAxisNumber(episode.amount,'Pnl')+(episode.percentage!==null&&Number.isFinite(episode.percentage)?' / '+curveDrawdownPercent(episode):''),...troughMarker,color,true);
+    });
+  }else{
+    reference(stats.median,'中位 '+curveInsightAxisNumber(stats.median,name),curveColors[name]);
+    const maxMarker=marker(stats.max,curveColors[name]);if(maxMarker)badge('高 '+curveInsightAxisNumber(stats.max.value,name),...maxMarker,curveColors[name],true);
+    if(name==='Equity'&&stats.min.value!==stats.max.value){const minMarker=marker(stats.min,'#ff8997');if(minMarker)badge('低 '+curveInsightAxisNumber(stats.min.value,name),...minMarker,'#ff8997',true)}
+  }
+  ctx.restore();
+}
+const curveLargeCharts=new Set();
+const curveSizeStorageKey='hl-curve-sizes-v1';
+function curveApplyChartSizes(redraw=true){
+  for(const name of curveNames){
+    const canvas=$(curveIds[name]),card=canvas.closest('.curve-card'),button=$('curveSize'+name),large=curveLargeCharts.has(name);
+    card.classList.toggle('curve-card-large',large);
+    if(button){button.setAttribute('aria-pressed',String(large));button.textContent=large?'↙ 恢复小图':'↗ 放大图表';button.setAttribute('aria-label',(large?'恢复小图：':'放大图表：')+card.querySelector('h3').textContent)}
+  }
+  const allLarge=curveLargeCharts.size===curveNames.length;
+  $('curveSizeAll').setAttribute('aria-pressed',String(allLarge));$('curveSizeAll').textContent=allLarge?'四图切换小图':'四图切换大图';
+  $('curveSizeStatus').textContent=allLarge?'大图阅读 · 四张图逐张铺满整行':curveLargeCharts.size?'已放大 '+curveLargeCharts.size+' 张 · 各图可独立切换大小':'小图总览 · 可单独放大任意图表';
+  try{localStorage.setItem(curveSizeStorageKey,JSON.stringify([...curveLargeCharts]))}catch(_){}
+  if(redraw)drawChart();
+}
+function initializeCurveSizes(){
+  try{const saved=JSON.parse(localStorage.getItem(curveSizeStorageKey)||'[]');if(Array.isArray(saved))for(const name of saved)if(curveNames.includes(name))curveLargeCharts.add(name)}catch(_){}
+  for(const name of curveNames){
+    const canvas=$(curveIds[name]),card=canvas.closest('.curve-card'),button=document.createElement('button');
+    button.type='button';button.id='curveSize'+name;button.className='button curve-size-toggle';button.setAttribute('aria-controls',curveIds[name]);
+    button.addEventListener('click',()=>{const oldTop=button.getBoundingClientRect().top;if(curveLargeCharts.has(name))curveLargeCharts.delete(name);else curveLargeCharts.add(name);curveApplyChartSizes();window.scrollBy({top:button.getBoundingClientRect().top-oldTop,behavior:'auto'})});
+    card.querySelector('.curve-value').appendChild(button);
+  }
+  $('curveSizeAll').addEventListener('click',()=>{const allLarge=curveLargeCharts.size===curveNames.length;curveLargeCharts.clear();if(!allLarge)for(const name of curveNames)curveLargeCharts.add(name);curveApplyChartSizes()});
+  curveApplyChartSizes(false);
+}
+function drawOneCurve(name){
+  const canvas=$(curveIds[name]),rect=canvas.getBoundingClientRect();if(!rect.width||!rect.height)return;
+  const dpr=Math.min(2,window.devicePixelRatio||1);canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);
+  const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);
+  const rows=curveRows(name),insights=curveAnalyze(name,rows);
+  const large=curveLargeCharts.has(name),w=rect.width,h=rect.height,left=large&&w>=600?86:66,right=large?22:16,top=name==='Pnl'&&curveState.annotations&&insights?.drawdowns.length?(large?56:46):(large?22:14),bottom=large?38:30,cw=Math.max(1,w-left-right),ch=h-top-bottom;
+  const indexAxis=$('curveAxis').value==='event'&&curveState.events.length>0;
+  const firstRank=curveRank(curveState.events[0]),lastRank=curveRank(curveState.events.at(-1));
+  let low=Infinity,high=-Infinity,valid=0;
+  for(const row of rows){const v=curveValue(row,name);if(v!==null){low=Math.min(low,v);high=Math.max(high,v);valid++}}
+  if(!valid){low=0;high=1}else{
+    if(name==='Position'||name==='Leverage'){low=Math.min(0,low);high=Math.max(0,high)}
+    if(low===high){const pad=Math.max(Math.abs(low)*.08,1);low-=pad;high+=pad}else{const pad=(high-low)*.12;low-=pad;high+=pad}
+  }
+  if(name==='Position'||name==='Leverage')low=Math.max(0,low);
+  const xr=rank=>left+(lastRank>firstRank?(rank-firstRank)/(lastRank-firstRank):.5)*cw;
+  const xt=t=>left+(t-curveState.from)/(curveState.to-curveState.from||1)*cw;
+  const x=i=>indexAxis?xr(curveRank(rows[i])):xt(Number(rows[i]?.time));
+  const y=v=>top+(high-v)/(high-low)*ch;
+  const chart={rows,x,xr,xt,y,left,right,top,bottom,cw,ch,w,h,indexAxis,valid,firstRank,lastRank,insights,large};
+  curveState.charts[name]=chart;
+  ctx.clearRect(0,0,w,h);ctx.font=(large?'12':'10')+'px system-ui';ctx.textAlign='right';ctx.textBaseline='middle';
+  const yTicks=large?6:4;
+  for(let i=0;i<yTicks;i++){const value=low+(high-low)*i/(yTicks-1),py=y(value);ctx.strokeStyle='#23343f';ctx.lineWidth=.7;ctx.beginPath();ctx.moveTo(left,py);ctx.lineTo(w-right,py);ctx.stroke();ctx.fillStyle='#7f98a8';ctx.fillText(curveAxisNumber(value,name),left-9,py)}
+  curveDrawInsightUnderlay(name,ctx,chart);
+  ctx.save();ctx.beginPath();ctx.rect(left-1,top-1,cw+2,ch+2);ctx.clip();ctx.strokeStyle=curveColors[name];ctx.lineWidth=large?1.8:1.4;ctx.lineJoin='round';ctx.beginPath();
+  let prev=null;const officialEquity=name==='Equity'&&!curveIsBalance(name);
+  for(let i=0;i<rows.length;i++){
+    const v=curveValue(rows[i],name);if(v===null){prev=null;continue}
+    const px=x(i),py=y(v);
+    if(prev){if(officialEquity)ctx.lineTo(px,py);else{ctx.lineTo(px,prev.y);ctx.lineTo(px,py)}}else ctx.moveTo(px,py);
+    prev={x:px,y:py};
+  }
+  ctx.stroke();ctx.fillStyle=curveColors[name];
+  // Retain isolated valid points at gaps; a lone moveTo() would otherwise vanish.
+  for(let i=0;i<rows.length;i++){
+    const v=curveValue(rows[i],name);if(v===null)continue;
+    const isolated=(i===0||curveValue(rows[i-1],name)===null)&&(i===rows.length-1||curveValue(rows[i+1],name)===null);
+    if(valid<220||officialEquity||isolated){ctx.beginPath();ctx.arc(x(i),y(v),valid>220?1.4:2.2,0,Math.PI*2);ctx.fill()}
+  }
+  ctx.restore();curveDrawInsightOverlay(name,ctx,chart);ctx.fillStyle='#7f98a8';ctx.textBaseline='alphabetic';const ticks=w<420?3:large&&w>=900?7:4;
+  for(let i=0;i<ticks;i++){
+    const fraction=i/(ticks-1),px=left+fraction*cw;ctx.textAlign=i===0?'left':i===ticks-1?'right':'center';
+    const rank=Math.round(firstRank+fraction*(lastRank-firstRank));
+    const label=indexAxis?'#'+(rank+1):curveDate.format(new Date(curveState.from+fraction*(curveState.to-curveState.from))).replace(/\//g,'-');
+    ctx.fillText(label,px,h-(large?12:8));
+  }
+  $('curveCount'+name).textContent=fmtInt(valid)+' 个有效点 / '+fmtInt(rows.length)+' 个事件或采样点'+(valid<rows.length?' · 缺失段保留为空':' · 全部保留');
+  curveRenderInsights(name,insights);
+  const empty=$('curveEmpty'+name);empty.style.display=valid?'none':'flex';
+  if(!valid){
+    let headline='本区间暂无可绘制数据',detail='调整日期区间，或补充缺失的操作记录。';
+    if(name==='Equity'){
+      if(curveIsBalance(name)){headline=curveKnownBalance(name)?'暂无可用的余额重建':'严格口径暂无可核验余额';detail=curveKnownBalance(name)?'需要同范围的余额基准点与资金流水；可联网更新余额快照，或切换官方净值查看。':'严格模式需要已核验的余额基准及连续流水。自动快照可能存在采集时间差；默认已知流水模式保留有标记的参考值。'}
+      else{headline='本区间没有官方净值采样';detail='可扩大时间范围，或切换逐事件账面余额。官方采样不以插值冒充真实记录。'}
+    }else if(name==='Leverage'){headline='暂不可计算此口径参考杠杆';detail='需要正的余额或权益，以及可用仓位规模。缺失、非正分母或超出已知持仓区间时留空。'}
+    else if(name==='Position'){headline='本区间仓位规模未知';detail='期初仓位、成本或连续成交不足；可切换最近成交价参考，或缩小到已观察操作区间。'}
+    else if($('curvePnlBasis').value.endsWith('strict')){headline='连续完整盈亏不可用';detail='此前有未知贡献；切换已知记录累计可查看已经获取的盈亏。'}
+    empty.innerHTML='<strong>'+esc(headline)+'</strong><span>'+esc(detail)+'</span>';
+  }
+}
+function curveMarker(name,index,time,rank){
+  const chart=curveState.charts[name];if(!chart)return;
+  const line=$('curveLine'+name),dot=$('curveDot'+name),row=chart.rows[index],value=curveValue(row,name);
+  const px=chart.indexAxis?chart.xr(rank):chart.xt(time);
+  if(!Number.isFinite(px)||px<chart.left-.1||px>chart.w-chart.right+.1){line.style.display='none';dot.style.display='none';return}
+  line.style.display='block';line.style.left=px+'px';line.style.top=chart.top+'px';line.style.bottom=chart.bottom+'px';
+  if(row&&value!==null){dot.style.display='block';dot.style.left=chart.x(index)+'px';dot.style.top=chart.y(value)+'px';dot.style.background=curveColors[name]}else dot.style.display='none';
+}
+function curveUpdateReadout(name,row){
+  $('curveValue'+name).textContent=curveValue(row,name)===null?'—':numberText(curveValueRaw(row,name),name==='Leverage'?3:2);
+  if(name==='Pnl'){const value=curveValue(row,name);$('curveValuePnl').style.color=value===null?'var(--muted)':value<0?'var(--red)':'var(--mint)'}
+  if(!row){$('curveReadout'+name).textContent='所选时刻之前，本区间内没有该口径的可用记录。';return}
+  const seq=row.timeline_sequence??row.sequence??row.event_sequence;let text=curveTime(row.time)+(seq!=null?' · #'+seq:'');
+  if(name==='Pnl'){
+    text+=' · '+(row.coin?row.coin+' ':'')+curveEventLabel(row);
+    text+=curveIsTrade(row)?'\n当笔已实现 '+numberText(row.closed_pnl,6)+' USDC · 交易费 '+numberText(row.fee,6)+' '+(row.fee_token||'币种未知'):'\n本事件不改变交易已实现盈亏；累计值延续上一笔已观察成交。';
+    if(!$('curvePnlBasis').value.endsWith('strict'))text+=' · 已知记录累计';
+  }else if(name==='Position'){
+    const entry=$('curvePositionBasis').value==='entry';
+    text+=' · 同时持仓 '+numberText(row.active_markets,0)+' 个已观察市场\n多仓 '+numberText(row[entry?'long_entry_notional':'long_trade_notional'],2)+' + 空仓 '+numberText(row[entry?'short_entry_notional':'short_trade_notional'],2)+' USDC';
+    if(!entry)text+=' · 最陈旧成交参考价 '+curveAge(row.price_age_ms);
+    const quality=curveQuality(row);if(quality)text+='\n'+quality;
+  }else if(name==='Equity'&&curveIsBalance(name)){
+    text+=' · '+curveEventLabel(row)+'\n本笔资金变动 '+numberText(row.delta??row.delta_usdc??row.known_delta_usdc,6)+' USDC';
+    text+=' · 基准 '+(row.anchor_time!=null?curveTime(row.anchor_time):'未知')+' · '+(row.anchor_source||'余额快照');
+    text+='\n'+(curveKnownBalance(name)?'按已知流水反推的参考余额；遗漏流水可影响结果。':'基准点与该时刻之间未检出未知贡献；完整覆盖仍需核对。');
+    const quality=curveQuality(row);if(quality)text+=' '+quality;
+  }else if(name==='Equity'){
+    const perp=$('curveEquityBasis').value==='perp';text+=' · 来源 '+(row[perp?'perp_source':'account_source']||'未知')+'\n官方净值采样包含未实现盈亏；与 USDC 账面余额范围不同。';
+  }else if(curveIsBalance(name)){
+    text+='\n分母 '+numberText(curveBalanceValue(row,curveKnownBalance(name)),2)+' USDC · '+(curveKnownBalance(name)?'已知流水重建参考':'连续可核对账面余额');
+    text+=' · 基准 '+(row.anchor_time!=null?curveTime(row.anchor_time):'未知');
+    const quality=curveQuality(row);if(quality)text+='\n'+quality;
+  }else{
+    text+='\n权益 '+numberText(row.equity_value??row.perp_equity,2)+' USD · '+(row.denominator_scope==='account'?'账户净值':'永续净值')+' · 采样于 '+(row.equity_time!=null?curveTime(row.equity_time):'未知')+' · 已过去 '+curveAge(row.equity_age_ms);
+    const quality=curveQuality(row);if(quality)text+='\n'+quality;
+  }
+  $('curveReadout'+name).textContent=text;$('curveReadout'+name).style.whiteSpace='pre-line';
+}
+function curveShowEvent(index){
+  const rows=curveState.events;
+  if(!rows.length){curveState.selected=-1;$('curvePrev').disabled=true;$('curveNext').disabled=true;$('curveFocus').disabled=true;$('curveEventIndex').disabled=true;$('curveEventIndex').value='';$('curveEventCount').textContent='/ 0 个事件';$('curveEventDetails').innerHTML='<div class="event-cell"><span>事件详情</span><strong>当前区间没有事件</strong></div>';$('curveEventQuality').textContent='';return}
+  index=Math.max(0,Math.min(rows.length-1,index));curveState.selected=index;const row=rows[index];
+  $('curveFocus').disabled=false;$('curvePrev').disabled=index===0;$('curveNext').disabled=index===rows.length-1;$('curveEventIndex').disabled=false;$('curveEventIndex').value=String(index+1);$('curveEventIndex').max=String(rows.length);$('curveEventCount').textContent='/ '+fmtInt(rows.length)+' 个事件';
+  const trade=curveIsTrade(row),delta=row.delta??row.delta_usdc??row.known_delta_usdc;
+  const cells=[['时间 · 北京时间',curveTime(row.time)],['事件',(row.coin?row.coin+' ':'')+curveEventLabel(row)],['本笔已实现盈亏',trade?numberText(row.closed_pnl,6)+' USDC':'—'],['本笔交易费 / 资金变动',trade?numberText(row.fee,6)+' '+(row.fee_token||'币种未知'):numberText(delta,6)+' USDC'],['本市场操作后仓位',trade?numberText(row.position_qty,8):'—'],['本市场平均开仓成本',trade?numberText(row.position_entry_price,6):'—']];
+  $('curveEventDetails').innerHTML=cells.map(([label,value])=>'<div class="event-cell"><span>'+esc(label)+'</span><strong>'+esc(value)+'</strong></div>').join('');
+  let quality=curveQuality(row);if(row.pnl_complete===false)quality+=(quality?'；':'')+'累计盈亏含未知贡献';if(row.position_complete===false)quality+=(quality?'；':'')+'仓位或成本不完整';
+  $('curveEventQuality').textContent=quality||'按事件时间保留；余额基准、历史覆盖与计算口径见各图读数及数据覆盖。';$('curveEventQuality').style.color=quality?'var(--gold)':'var(--muted)';
+}
+function curveSync(time,exactName=null,exactIndex=-1){
+  const selected=curveState.events[curveState.selected],exactRow=exactName?curveState.charts[exactName]?.rows[exactIndex]:null;
+  curveState.exactSelection=exactRow?{name:exactName,row:exactRow}:null;
+  const rank=curveRank(exactRow||selected||{time});
+  for(const name of curveNames){
+    const chart=curveState.charts[name];if(!chart)continue;
+    const index=exactName===name?exactIndex:curveRowAtRank(chart.rows,rank,time);
+    chart.selectedIndex=index;curveMarker(name,index,time,rank);curveUpdateReadout(name,chart.rows[index]);
+  }
+}
+function curveSelectEvent(index){curveShowEvent(index);if(curveState.selected>=0)curveSync(Number(curveState.events[curveState.selected].time));else for(const name of curveNames){const chart=curveState.charts[name];curveUpdateReadout(name,chart?.rows.at(-1));$('curveLine'+name).style.display='none';$('curveDot'+name).style.display='none'}}
+function curveShowSampleWithoutEvent(time){
+  curveState.selected=-1;$('curveFocus').disabled=true;$('curveEventIndex').value='';$('curvePrev').disabled=true;$('curveNext').disabled=!curveState.events.length;
+  $('curveEventDetails').innerHTML='<div class="event-cell"><span>采样时点</span><strong>'+esc(curveTime(time))+'</strong></div><div class="event-cell"><span>事件历史</span><strong>该时刻前无本区间事件</strong></div>';$('curveEventQuality').textContent='';
+}
+function curvePointer(name,clientX){
+  const chart=curveState.charts[name];if(!chart?.rows.length)return;
+  const rect=$(curveIds[name]).getBoundingClientRect(),fraction=Math.max(0,Math.min(1,(clientX-rect.left-chart.left)/chart.cw));let index;
+  if(chart.indexAxis){const rank=Math.round(chart.firstRank+fraction*(chart.lastRank-chart.firstRank)),point=curveTimeline[rank];index=curveRowAtRank(chart.rows,rank,Number(point?.time??curveState.to))}
+  else index=curveIndexAt(chart.rows,curveState.from+fraction*(curveState.to-curveState.from),true);
+  index=Math.max(0,Math.min(chart.rows.length-1,index));const row=chart.rows[index],time=Number(row.time),rank=curveRank(row);
+  let eventIndex=curveRowAtRank(curveState.events,rank,time);
+  if(eventIndex>=0)curveShowEvent(eventIndex);else curveShowSampleWithoutEvent(time);
+  curveSync(time,name,index);
+}
+function curveBounds(){let low=Infinity,high=-Infinity;for(const rows of [curveTimeline,curveAllEvents,curveAllEquity,curveAllLeverage,curveAllBalances,curveAllBalanceLeverage])for(const row of rows){const t=Number(row.time);if(Number.isFinite(t)){low=Math.min(low,t);high=Math.max(high,t)}}if(!Number.isFinite(low)){low=Date.parse(MODEL.generated)||Date.now();high=low+3600000}if(high<=low)high=low+1000;return[low,high]}
+function curveSetRange(from,to,source='custom'){$('curveFrom').value=curveLocalInput(from);$('curveTo').value=curveLocalInput(to);curveState.rangeSource=source;curveApplyRange(from,to)}
+function curveApplyRange(explicitFrom=null,explicitTo=null){
+  const bounds=curveBounds(),from=explicitFrom??curveInputTime($('curveFrom').value)??bounds[0],to=explicitTo??curveInputTime($('curveTo').value)??bounds[1];
+  if(to<from){$('curveStatus').textContent='开始时间不能晚于结束时间，请调整区间。';$('curveStatus').classList.add('curve-error');return}
+  if(explicitFrom===null)curveState.rangeSource='custom';
+  curveState.from=from;curveState.to=Math.max(from+1,to);curveState.events=curveTimeline.filter(r=>r.time>=from&&r.time<=to);curveState.selected=curveState.events.length-1;curveState.exactSelection=null;
+  const eqCount=curveAllEquity.filter(r=>r.time>=from&&r.time<=to).length,tradeCount=curveAllEvents.filter(r=>r.time>=from&&r.time<=to&&r.action!=='boundary').length;
+  $('curveStatus').classList.remove('curve-error');
+  $('curveStatus').innerHTML='<strong>'+fmtInt(tradeCount)+' 笔成交操作</strong> · '+fmtInt(curveState.events.length)+' 个联合事件 · '+fmtInt(eqCount)+' 个官方净值时点 · '+esc(timeText(from))+' — '+esc(timeText(to))+'（北京时间）'+(curveState.rangeSource==='initial'?' · 首次聚焦成交覆盖区间':'')+' · 累计盈亏不随缩放重置。';
+  for(const days of [7,30,90,180,365])$('curveLast'+days).setAttribute('aria-pressed',String(curveState.rangeSource==='last'+days));
+  drawChart();
+}
+function drawChart(){
+  const exactSelection=curveState.exactSelection;
+  for(const name of curveNames)drawOneCurve(name);
+  const entry=$('curvePositionBasis').value==='entry',positionLabel=entry?'平均开仓成本规模':'最近成交价参考规模';
+  $('positionFooterNote').textContent=entry?'各市场按平均开仓成本计量，逐事件保留。可由连续成交与已实现盈亏核对的成本会恢复；真实缺口保留为空。':'持仓数量 × 各市场最近已观察成交价；旧参考价格不代表该时刻的标记价格。';
+  const eb=$('curveEquityBasis').value,lb=$('curveLeverageBasis').value;
+  $('equityBasisNote').textContent=eb.startsWith('balance')?'逐事件反推 USDC 账面资金；不含未实现盈亏及非 USDC 资产市值。':'真实 portfolio 净值采样，包含浮盈亏和该账户范围的资金变动。';
+  $('curveEquityUnit').textContent=eb==='balance_known'?'USDC · 已知流水参考':eb==='balance_strict'?'USDC · 账本重建':'USD · 官方采样';
+  $('equityFooterNote').textContent=eb==='balance_known'?'只扣已知流水的反推参考；缺失成交、资金费或转账可能造成偏差。基准信息见上方读数。':eb==='balance_strict'?'使用已核验余额基准，且区间内无已识别未知贡献；全历史覆盖仍需核对。':'官方净值可包含现货等资产；其范围与 USDC 账面余额不同，采样连线不代表期间真实波动。';
+  $('equityCsv').href=eb.startsWith('balance')?'exports/balance_curve.csv':'exports/equity_curve.csv';
+  $('leverageBasisNote').textContent=positionLabel+' ÷ '+(lb==='balance_known'?'已知流水重建余额（参考）':lb==='balance_strict'?'连续可核对账面余额':curveAccountDenominator?'最近可用官方账户净值':'最近可用官方永续净值');
+  $('leverageFooterNote').textContent=lb.startsWith('balance')?'与仓位图共用分子。余额 ≤ 0、仓位未知或历史未更新到该时刻时留空；不等于交易所保证金杠杆。':'仅沿用不晚于该事件的官方净值；过期或非正权益时留空。分子只包括已覆盖的 USDC 永续仓位。';
+  $('leverageCsv').href=lb.startsWith('balance')?'exports/balance_leverage_curve.csv':'exports/leverage_curve.csv';
+  const b=$('curvePnlBasis').value;
+  $('pnlBasisNote').textContent=(b.endsWith('strict')?'完整连续累计；出现未知贡献后留空。':'已知记录累计；历史不完整时只代表已知贡献。')+(b.startsWith('net')?'已扣 USDC 交易费，不含资金费。':'未扣交易费及资金费。');
+  $('pnlFooterNote').textContent=b.endsWith('strict')?'此前未知贡献使完整累计不可知；不以零填补。资金费和转账不算作此图的交易盈亏。':'只累计已知成交贡献；缺失贡献处断线。资金费与转账改变账面余额，不作为交易盈亏重复加入。';
+  const exactIndex=exactSelection?curveState.charts[exactSelection.name]?.rows.indexOf(exactSelection.row):-1;
+  if(exactIndex>=0)curveLocateInsight(exactSelection.name,exactIndex,false);else curveSelectEvent(curveState.selected);
+}
+function initializeCurves(){
+  initializeCurveSizes();
+  $('curveScopeTag').textContent=curveNativeOnly?'原生 USDC 永续':'USDC 永续 · 含 HIP-3';
+  const notes=['仓位与逐笔盈亏采用'+curveScopeLabel+'；现货及非 USDC 计价市场不并入该仓位规模。','USDC 账面资金按余额基准点和区间流水反推；现货买卖、费用、资金费、转账按余额影响计入。不含非 USDC 现货、金库或借贷投资市值，也不等于可提现余额。','默认余额为已知流水重建参考，快照时间差和未取得的流水均可能影响结果；严格模式需要已核验余额基准，且区间内没有已识别缺项。','官方净值点含未实现盈亏，独立保留；不会用净值直接冒充账面余额，也不会把平仓利润再计成净值新增收益。','持仓成本金额、最近成交价金额和余额分母均有特定口径；参考倍数不等于全账户的真实市值杠杆。','事后余额反推可以使用后面的可靠基准点；它用于历史复盘，不是实时无未来信息的回测输入。','每个真实事件保留一个点；没有价格或流水支持的区间不会凭空补成行情数据。','统计标注仅使用当前区间、当前口径的有效点。中位数与四分位数按有效事件 / 采样点等权计算，包含零值，缺失值不填零；不是按时间加权的统计。','前三大回撤按独立的峰值到恢复过程划分，按峰谷差额排序；同一轮未恢复的下跌只计一次。报告区间起点以真实可用点为准，不假设额外的零本金或零盈亏。','回撤遇缺失点即截断，恢复状态标记为未知；未恢复只表示当前查看区间末端仍未恢复。回撤百分比 = 峰谷亏损金额 ÷ 该段峰值事件发生后的 USDC 账面资金 × 100%；该段分母固定，不随谷底或当前资金变化。','峰值资金优先采用连续可核对账面余额，缺失时使用已知流水参考并标注；分母未知、为零或负数时不计算百分比。分母不随资产图切换官方净值而改变，不含浮盈亏，也不是全账户净值收益率。','资产高低点和首末差包含出入金等资金影响，不能直接作为投资收益。',...curveList(CURVES.warnings)];
+  const uniqueNotes=[...new Set(notes)];$('curveNotesTitle').textContent='计算口径与数据覆盖 · '+fmtInt(uniqueNotes.length)+' 项';$('curveNotesList').innerHTML=uniqueNotes.map(n=>'<li>'+esc(n)+'</li>').join('');
+  if(!curveAllBalances.some(r=>curveBalanceValue(r,true)!=null))$('curveNotes').open=true;
+  const[low,high]=curveBounds(),firstTrade=curveAllEvents.find(r=>r.action!=='boundary');curveSetRange(Math.max(low,Number(firstTrade?.time??low)),high,'initial');
+  $('curveApply').addEventListener('click',()=>curveApplyRange());
+  for(const id of ['curveFrom','curveTo'])$(id).addEventListener('keydown',event=>{if(event.key==='Enter')curveApplyRange()});
+  $('curveReset').addEventListener('click',()=>{const[a,b]=curveBounds();curveSetRange(a,b,'all')});
+  for(const days of [7,30,90,180,365])$('curveLast'+days).addEventListener('click',()=>{const[a,b]=curveBounds();curveSetRange(Math.max(a,b-days*86400000),b,'last'+days)});
+  $('curveAnnotations').addEventListener('click',()=>{curveState.annotations=!curveState.annotations;$('curveAnnotations').setAttribute('aria-pressed',String(curveState.annotations));$('curveAnnotations').textContent='图上标注 · '+(curveState.annotations?'开':'关');drawChart()});
+  document.querySelector('.curve-grid').addEventListener('click',curveInsightClick);
+  for(const id of ['curveAxis','curvePnlBasis','curvePositionBasis','curveLeverageBasis'])$(id).addEventListener('change',drawChart);
+  $('curveEquityBasis').addEventListener('change',()=>{$('curveLeverageBasis').value=$('curveEquityBasis').value.startsWith('balance')?$('curveEquityBasis').value:'official';drawChart()});
+  $('curvePrev').addEventListener('click',()=>curveSelectEvent(curveState.selected-1));$('curveNext').addEventListener('click',()=>curveSelectEvent(curveState.selected+1));
+  $('curveFocus').addEventListener('click',()=>{const row=curveState.events[curveState.selected];if(!row)return;const absolute=curveTimeline.indexOf(row),first=curveTimeline[Math.max(0,absolute-50)],last=curveTimeline[Math.min(curveTimeline.length-1,absolute+50)];curveSetRange(Number(first.time),Number(last.time),'focus');curveSelectEvent(curveState.events.indexOf(row))});
+  $('curveEventIndex').addEventListener('change',()=>curveSelectEvent((Number($('curveEventIndex').value)||1)-1));
+  for(const name of curveNames){
+    const canvas=$(curveIds[name]);let lastPoint=null;
+    canvas.addEventListener('pointermove',event=>{lastPoint=event.clientX;if(curveState.frame)return;curveState.frame=requestAnimationFrame(()=>{curveState.frame=0;curvePointer(name,lastPoint)})});
+    canvas.addEventListener('click',event=>{curvePointer(name,event.clientX);canvas.focus({preventScroll:true})});
+    canvas.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const chart=curveState.charts[name];if(!chart?.rows.length)return;const time=Number(curveState.events[curveState.selected]?.time??chart.rows[0].time);let index=chart.selectedIndex??curveIndexAt(chart.rows,time);index=event.key==='Home'?0:event.key==='End'?chart.rows.length-1:index+(event.key==='ArrowRight'?1:-1);index=Math.max(0,Math.min(chart.rows.length-1,index));const row=chart.rows[index],stamp=Number(row.time),ei=curveRowAtRank(curveState.events,curveRank(row),stamp);if(ei>=0)curveShowEvent(ei);curveSync(stamp,name,index)});
+  }
+  window.__HL_CURVE_DIAGNOSTICS__=()=>({events:curveAllEvents.length,timeline:curveTimeline.length,equity:curveAllEquity.length,balance:curveAllBalances.length,leverage:curveAllLeverage.length,balanceLeverage:curveAllBalanceLeverage.length,visibleEvents:curveState.events.length,selected:curveState.selected,range:[curveState.from,curveState.to],rangeSource:curveState.rangeSource,axis:$('curveAxis').value,equityBasis:$('curveEquityBasis').value,leverageBasis:$('curveLeverageBasis').value,validPoints:Object.fromEntries(curveNames.map(n=>[n,curveState.charts[n]?.valid||0])),selectedRows:Object.fromEntries(curveNames.map(n=>{const c=curveState.charts[n],r=c?.rows[c.selectedIndex];return[n,r?{time:r.time,operation_id:r.operation_id,timeline_sequence:r.timeline_sequence,event_sequence:r.event_sequence,value:curveValueRaw(r,n)}:null]}))});
+  window.__HL_CHART_INSIGHTS__=()=>Object.fromEntries(curveNames.map(name=>[name,curveState.charts[name]?.insights??null]));
+  window.__HL_CURVE_SELECT__=index=>curveSelectEvent(index);window.__HL_CURVE_RANGE__=(from,to)=>curveSetRange(from,to);
+}
+
+document.querySelectorAll('[data-tab]').forEach(button=>button.addEventListener('click',()=>switchTab(button.dataset.tab)));
+$('coverageShortcut').addEventListener('click',()=>{switchTab('coverage');$('coverageView').scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'})});
+let searchTimer;$('search').addEventListener('input',()=>{state.queryId++;clearTimeout(searchTimer);searchTimer=setTimeout(startQuery,260)});
+for(const name of ['coin','kind','dateFrom','dateTo'])$(name).addEventListener('change',()=>{clearTimeout(searchTimer);startQuery()});
+$('sort').addEventListener('change',()=>{state.order=$('sort').value;startQuery()});$('reset').addEventListener('click',()=>{clearTimeout(searchTimer);for(const name of ['search','coin','kind','dateFrom','dateTo'])$(name).value='';startQuery()});
+$('pageSize').addEventListener('change',()=>{state.pageSize=Math.min(100,Number($('pageSize').value)||50);state.page=1;updateEngine();if(!state.busy)renderPage()});
+$('firstPage').addEventListener('click',()=>setPage(1));$('prevPage').addEventListener('click',()=>setPage(state.page-1));$('nextPage').addEventListener('click',()=>setPage(state.page+1));$('lastPage').addEventListener('click',()=>setPage(Math.ceil(state.total/state.pageSize)));$('pageInput').addEventListener('change',()=>setPage(Number($('pageInput').value)||1));
+$('tableBody').addEventListener('click',event=>{const button=event.target.closest('[data-detail]');if(button)showDetail(Number(button.dataset.detail))});$('closeDrawer').addEventListener('click',closeDetail);$('drawerBackdrop').addEventListener('click',event=>{if(event.target===$('drawerBackdrop'))closeDetail()});document.addEventListener('keydown',event=>{if(event.key==='Escape')closeDetail()});
+$('copyWallet').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(MODEL.wallet);toast('钱包地址已复制')}catch(_){const element=document.createElement('textarea');element.value=MODEL.wallet;document.body.appendChild(element);element.select();const ok=document.execCommand('copy');element.remove();toast(ok?'钱包地址已复制':'请手动选中并复制钱包地址')}});
+window.addEventListener('resize',drawChart);
+// Bounded diagnostics are useful for checking large reports without exposing rows.
+window.__HL_DIAGNOSTICS__=()=>({rawChunksCached:rawCache.size,visibleRows:state.visibleRows.length,matchedRows:state.total,worker:Boolean(worker),page:state.page,tab:state.tab});
+initializeSummary();updateEngine();switchTab('operations');initializeCurves();
+})();
+</script>
+</body>
+</html>
