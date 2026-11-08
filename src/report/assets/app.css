@@ -22,6 +22,12 @@
   --critical: #d03b3b;
   --seq-0: #cde2fb;
   --seq-1: #104281;
+  --tone-good-bg: rgba(12, 163, 12, 0.09);
+  --tone-warn-bg: rgba(250, 178, 25, 0.16);
+  --tone-bad-bg: rgba(208, 59, 59, 0.10);
+  --tone-good-ink: #0a7d0a;
+  --tone-warn-ink: #9a6a00;
+  --tone-bad-ink: #b42f2f;
 }
 [data-bs-theme="dark"] {
   --surface-1: #1a1a19;
@@ -42,6 +48,12 @@
   --mid: #383835;
   --seq-0: #1c2a3d;
   --seq-1: #86b6ef;
+  --tone-good-bg: rgba(52, 190, 52, 0.14);
+  --tone-warn-bg: rgba(250, 178, 25, 0.14);
+  --tone-bad-bg: rgba(230, 103, 103, 0.17);
+  --tone-good-ink: #6fd46f;
+  --tone-warn-ink: #f5c04a;
+  --tone-bad-ink: #f08a8a;
 }
 body {
   font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
@@ -94,3 +106,49 @@ body {
 .score-table .srccell { width: 1%; white-space: nowrap; }
 details.more > summary { cursor: pointer; color: var(--ink-2); font-size: 13px; padding: 6px 0; }
 .score-table .src { font-size: 10px; color: var(--ink-muted); border: 1px solid var(--grid); border-radius: 4px; padding: 0 4px; }
+
+/* ratings: red = bad, amber = warn, green = good (thresholds in app.js RULES) */
+.kpi.tone-good { background: linear-gradient(var(--tone-good-bg), var(--tone-good-bg)), var(--surface-1); box-shadow: inset 3px 0 0 var(--good); }
+.kpi.tone-warn { background: linear-gradient(var(--tone-warn-bg), var(--tone-warn-bg)), var(--surface-1); box-shadow: inset 3px 0 0 var(--warning); }
+.kpi.tone-bad { background: linear-gradient(var(--tone-bad-bg), var(--tone-bad-bg)), var(--surface-1); box-shadow: inset 3px 0 0 var(--critical); }
+tr.tone-good { --tblr-table-bg-state: var(--tone-good-bg); }
+tr.tone-warn { --tblr-table-bg-state: var(--tone-warn-bg); }
+tr.tone-bad { --tblr-table-bg-state: var(--tone-bad-bg); }
+tr.tone-good > td:first-child { box-shadow: inset 3px 0 0 var(--good), inset 0 0 0 9999px var(--tone-good-bg); }
+tr.tone-warn > td:first-child { box-shadow: inset 3px 0 0 var(--warning), inset 0 0 0 9999px var(--tone-warn-bg); }
+tr.tone-bad > td:first-child { box-shadow: inset 3px 0 0 var(--critical), inset 0 0 0 9999px var(--tone-bad-bg); }
+.table > :not(caption) > * > .cell-tone-good, .tabulator .tabulator-cell.cell-tone-good { box-shadow: inset 0 0 0 9999px var(--tone-good-bg); color: var(--tone-good-ink); font-weight: 600; }
+.table > :not(caption) > * > .cell-tone-warn, .tabulator .tabulator-cell.cell-tone-warn { box-shadow: inset 0 0 0 9999px var(--tone-warn-bg); color: var(--tone-warn-ink); font-weight: 600; }
+.table > :not(caption) > * > .cell-tone-bad, .tabulator .tabulator-cell.cell-tone-bad { box-shadow: inset 0 0 0 9999px var(--tone-bad-bg); color: var(--tone-bad-ink); font-weight: 600; }
+.tone-icon { display: inline-block; width: 1.1em; font-weight: 700; text-align: center; margin-right: 3px; }
+.tone-good .tone-icon { color: var(--tone-good-ink); }
+.tone-warn .tone-icon { color: var(--tone-warn-ink); }
+.tone-bad .tone-icon { color: var(--tone-bad-ink); }
+.kpi.tone-good .kpi-value { color: var(--tone-good-ink); }
+.kpi.tone-bad .kpi-value { color: var(--tone-bad-ink); }
+.flag-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.flag-row + .flag-row { margin-top: 8px; }
+.flag-head { width: 64px; flex: none; color: var(--ink-2); font-size: 12px; }
+.flag { display: inline-flex; align-items: center; padding: 3px 10px; margin-right: 4px; border-radius: 6px; font-size: 13px;
+  color: var(--ink-1); background: var(--mid); border: 1px solid transparent; cursor: default; }
+.flag b { margin-left: 4px; font-variant-numeric: tabular-nums; }
+.flag.tone-good { background: var(--tone-good-bg); border-color: var(--good); }
+.flag.tone-warn { background: var(--tone-warn-bg); border-color: var(--warning); }
+.flag.tone-bad { background: var(--tone-bad-bg); border-color: var(--critical); }
+.tabulator .tabulator-cell.signed-pos { color: var(--pos); }
+.tabulator .tabulator-cell.signed-neg { color: var(--neg); }
+
+/* The Tabulator bootstrap theme hardcodes white; follow the dark palette. */
+[data-bs-theme="dark"] .tabulator,
+[data-bs-theme="dark"] .tabulator .tabulator-header,
+[data-bs-theme="dark"] .tabulator .tabulator-header .tabulator-col,
+[data-bs-theme="dark"] .tabulator .tabulator-tableholder .tabulator-table,
+[data-bs-theme="dark"] .tabulator-row { background-color: var(--surface-1); color: var(--ink-1); border-color: var(--grid); }
+[data-bs-theme="dark"] .tabulator .tabulator-header { color: var(--ink-2); }
+[data-bs-theme="dark"] .tabulator-row.tabulator-row-even { background-color: #222221; }
+[data-bs-theme="dark"] .tabulator-row .tabulator-cell { border-color: var(--grid); }
+[data-bs-theme="dark"] .tabulator .tabulator-header .tabulator-col .tabulator-header-filter input,
+[data-bs-theme="dark"] .tabulator .tabulator-header .tabulator-col .tabulator-header-filter input:focus { background-color: var(--page); color: var(--ink-1); border-color: var(--axis); }
+@media (hover: hover) and (pointer: fine) {
+  [data-bs-theme="dark"] .tabulator-row.tabulator-selectable:hover { background-color: #2a2a28; }
+}

@@ -77,6 +77,22 @@ def test_scorecard_groups_and_sources():
     assert all(set(i) == {"key", "label", "value", "unit", "source", "definition"} for i in items.values())
 
 
+def test_report_rating_rules_match_scorecard_keys():
+    """A misspelt key in app.js RULES would silently leave a metric untinted."""
+    import re
+    from pathlib import Path
+    from metrics.scorecard import scorecard
+    js = (Path(__file__).resolve().parents[1] / "src/report/assets/app.js").read_text(encoding="utf-8")
+    block = js[js.index("const RULES = {"):js.index("const TONE =")]
+    shared, report_only = block.split("// report-only")
+    keys = set(re.findall(r"^\s{4}(\w+): \{", shared, re.M))
+    excursion = {"evaluated": 1, "coarse": 0}
+    cards = scorecard(perf={}, risk={}, behavior={}, activity={}, costs={}, excursion=excursion)
+    known = {i["key"] for g in cards for i in g["items"]}
+    assert keys and keys <= known, keys - known
+    assert re.findall(r"^\s{4}(\w+): \{", report_only, re.M)
+
+
 # ------------------------------------------------------------- MAE / MFE
 
 def test_excursion_uses_finest_interval_per_segment():

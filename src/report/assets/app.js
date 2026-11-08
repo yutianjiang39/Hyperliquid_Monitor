@@ -45,6 +45,74 @@
   const SOURCE = { official: '官方', rebuilt: '重建', hybrid: '混合', daily: '日序列', fills: '成交', campaigns: '回合', candles: 'K线' };
   const STATUS = { ok: ['ok', '✓', '对账通过'], warn: ['warn', '!', '对账有偏差'], fail: ['fail', '✕', '对账失败'], no_data: ['', '?', '无对账数据'] };
 
+  // ---------- ratings ----------
+  // Rule-of-thumb thresholds that tint a metric red (bad), amber (warn) or
+  // green (good); checked in that order. Keys follow metrics/scorecard.py,
+  // the last block is report-only. Drawdowns are positive magnitudes; VaR and
+  // CVaR are negative daily returns.
+  const lt = (x) => (v) => v < x, le = (x) => (v) => v <= x, gt = (x) => (v) => v > x, ge = (x) => (v) => v >= x;
+  const RULES = {
+    total_pnl: { bad: lt(0), hint: '< 0 危险' },
+    twr: { bad: lt(0), hint: '< 0 危险' },
+    cagr: { bad: lt(0), good: ge(0.5), hint: '< 0 危险 · ≥ 50% 优秀' },
+    expectancy: { bad: lt(0), hint: '< 0 危险' },
+    pnl_per_volume: { bad: lt(0), good: ge(5), hint: '< 0 危险 · ≥ 5 bps 优秀' },
+    maker_share: { good: ge(0.6), hint: '≥ 60% 优秀' },
+    // Win rate and payoff trade off against each other (scalpers vs trend
+    // followers), so neither alone is flagged as dangerous; profit factor is.
+    win_rate: { warn: lt(0.3), good: ge(0.6), hint: '< 30% 留意 · ≥ 60% 优秀（需结合盈亏比）' },
+    payoff: { good: ge(2), hint: '≥ 2 优秀（需结合胜率）' },
+    profit_factor: { bad: lt(1), warn: lt(1.2), good: ge(1.5), hint: 'Profit factor < 1 危险 · < 1.2 留意 · ≥ 1.5 优秀' },
+    efficiency: { bad: lt(0), good: ge(0.3), hint: '< 0 危险 · ≥ 30% 优秀' },
+    max_loss_streak: { bad: ge(10), warn: ge(6), hint: '≥ 10 危险 · ≥ 6 留意' },
+    top10_share: { warn: gt(0.9), hint: '> 90% 留意（依赖少数大单）' },
+    largest_share: { warn: gt(0.5), hint: '> 50% 留意（依赖单笔）' },
+    monthly_win_rate: { bad: lt(0.4), warn: lt(0.5), good: ge(0.7), hint: '< 40% 危险 · < 50% 留意 · ≥ 70% 优秀' },
+    volatility: { bad: gt(1.5), warn: gt(0.8), hint: '> 150% 危险 · > 80% 留意' },
+    sharpe: { bad: lt(0), warn: lt(0.5), good: ge(2), hint: '< 0 危险 · < 0.5 留意 · ≥ 2 优秀' },
+    sortino: { bad: lt(0), warn: lt(0.7), good: ge(3), hint: '< 0 危险 · < 0.7 留意 · ≥ 3 优秀' },
+    calmar: { bad: lt(0.5), warn: lt(1), good: ge(3), hint: '< 0.5 危险 · < 1 留意 · ≥ 3 优秀' },
+    omega: { bad: lt(1), warn: lt(1.2), good: ge(1.5), hint: '< 1 危险 · < 1.2 留意 · ≥ 1.5 优秀' },
+    tail_ratio: { bad: lt(0.8), warn: lt(1), good: ge(1.2), hint: '< 0.8 危险 · < 1 留意 · ≥ 1.2 优秀' },
+    var95: { bad: le(-0.1), warn: le(-0.05), hint: '≤ −10% 危险 · ≤ −5% 留意' },
+    cvar95: { bad: le(-0.15), warn: le(-0.08), hint: '≤ −15% 危险 · ≤ −8% 留意' },
+    leverage_mean: { bad: gt(10), warn: gt(5), hint: '> 10× 危险 · > 5× 留意' },
+    max_dd: { bad: ge(0.3), warn: ge(0.2), good: le(0.1), hint: '≥ 30% 危险 · ≥ 20% 留意 · ≤ 10% 优秀' },
+    current_dd: { bad: ge(0.2), warn: ge(0.1), hint: '≥ 20% 危险 · ≥ 10% 留意' },
+    avg_dd_depth: { bad: ge(0.2), warn: ge(0.12), hint: '≥ 20% 危险 · ≥ 12% 留意' },
+    recovery_factor: { bad: lt(1), warn: lt(2), good: ge(5), hint: '< 1 危险 · < 2 留意 · ≥ 5 优秀' },
+    underwater_ratio: { bad: gt(0.7), warn: gt(0.5), good: le(0.2), hint: '> 70% 危险 · > 50% 留意 · ≤ 20% 优秀' },
+    longest_underwater: { bad: gt(180), warn: gt(90), hint: '> 180 天危险 · > 90 天留意' },
+    current_underwater: { bad: gt(180), warn: gt(90), hint: '> 180 天危险 · > 90 天留意' },
+    mfe_capture: { bad: lt(0), warn: lt(0.2), good: ge(0.5), hint: '< 0 危险 · < 20% 留意 · ≥ 50% 优秀' },
+    // report-only
+    cost_to_gross: { bad: gt(0.5), warn: gt(0.25), good: le(0.1), hint: '> 50% 危险 · > 25% 留意 · ≤ 10% 优秀' },
+    liq_distance: { bad: lt(0.1), warn: lt(0.25), hint: '距强平 < 10% 危险 · < 25% 留意' },
+    position_leverage: { bad: gt(20), warn: gt(10), hint: '> 20× 危险 · > 10× 留意' },
+    volume_coverage: { bad: lt(0.5), warn: lt(0.8), good: ge(0.95), hint: '< 50% 危险 · < 80% 留意 · ≥ 95% 优秀' },
+    position_breaks: { warn: gt(0), good: (v) => v === 0, hint: '> 0 留意 · 0 优秀' },
+    liquidations: { bad: gt(0), hint: '> 0 危险（曾被强平）' },
+    recon_status: { map: { fail: 'bad', warn: 'warn', ok: 'good' }, hint: '官方 vs 重建累计盈亏残差：≤ max(1%, $100) 通过，≤ 5% 有偏差' },
+  };
+  const TONE = { bad: ['tone-bad', '✕', '危险'], warn: ['tone-warn', '!', '留意'], good: ['tone-good', '✓', '优秀'] };
+  const LEVELS = ['bad', 'warn', 'good'];
+  function rate(key, value) {
+    const r = RULES[key];
+    if (!r) return null;
+    if (r.map) return r.map[value] || null;
+    value = num(value);
+    if (!isNum(value)) return null;
+    return LEVELS.find((lvl) => r[lvl] && r[lvl](value)) || null;
+  }
+  // {level, cls, icon, title} for tinting; title carries the thresholds.
+  function tone(key, value) {
+    const level = rate(key, value), r = RULES[key];
+    const t = level ? TONE[level] : ['', '', ''];
+    return { level, cls: t[0], icon: t[1], title: r ? (level ? t[2] + ' · ' : '') + '阈值：' + r.hint : '' };
+  }
+  const toneIcon = (t) => (t && t.icon ? `<span class="tone-icon">${t.icon}</span>` : '');
+  const toneAttr = (t) => (t && t.title ? ` title="${esc(t.title)}"` : '');
+
   // ---------- theme / colors ----------
   function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
   function C() {
@@ -135,13 +203,14 @@
     opts = opts || {};
     return `<div class="${opts.col || 'col-12'}"><div class="card h-100"><div class="card-header"><h3 class="card-title">${title}${opts.sub ? `<small>${opts.sub}</small>` : ''}</h3>${opts.actions || ''}</div><div class="card-body${opts.flush ? ' p-0' : ''}">${body}</div></div></div>`;
   }
-  function kpi(label, value, sub, source, col) {
-    return `<div class="${col || 'col-6 col-md-4 col-xl-2'}"><div class="card kpi"><div class="card-body py-3">
-      <div class="kpi-label">${label}${source ? `<span class="src">${SOURCE[source] || source}</span>` : ''}</div>
+  function kpi(label, value, sub, source, col, t) {
+    return `<div class="${col || 'col-6 col-md-4 col-xl-2'}"><div class="card kpi ${t ? t.cls : ''}"${toneAttr(t)}><div class="card-body py-3">
+      <div class="kpi-label">${toneIcon(t)}${label}${source ? `<span class="src">${SOURCE[source] || source}</span>` : ''}</div>
       <div class="kpi-value${String(value).replace(/<[^>]+>/g, '').length > 12 ? ' long' : ''}">${value}</div><div class="kpi-sub">${sub || '&nbsp;'}</div></div></div></div>`;
   }
+  // Rows are [label, value, note?, tone?].
   function statTable(rows) {
-    return `<table class="table table-sm stat-table mb-0"><tbody>${rows.map((r) => `<tr><td>${r[0]}</td><td class="num">${r[1]}</td>${r[2] !== undefined ? `<td class="muted small">${r[2]}</td>` : ''}</tr>`).join('')}</tbody></table>`;
+    return `<table class="table table-sm stat-table mb-0"><tbody>${rows.map((r) => `<tr class="${r[3] ? r[3].cls : ''}"${toneAttr(r[3])}><td>${toneIcon(r[3])}${r[0]}</td><td class="num">${r[1]}</td>${r[2] !== undefined ? `<td class="muted small">${r[2]}</td>` : ''}</tr>`).join('')}</tbody></table>`;
   }
   function statusBadge(status, text) {
     const s = STATUS[status] || STATUS.no_data;
@@ -167,6 +236,21 @@
   const col = (title, field, extra) => Object.assign({ title, field, headerFilter: 'input' }, extra || {});
   const numCol = (title, field, fn, extra) => Object.assign({ title, field, hozAlign: 'right', sorter: 'number', formatter: fmtCell(fn || ((v) => (v === null ? '' : Number(v).toLocaleString('en-US', { maximumFractionDigits: 6 })))) }, extra || {});
   const timeCol = (title, field) => ({ title, field, sorter: 'number', formatter: fmtCell((v) => date(v, true)), width: 140 });
+  // Cell elements are reused by the virtual renderer, so classes are set both ways.
+  const setClasses = (el, map) => Object.keys(map).forEach((k) => el.classList.toggle(k, !!map[k]));
+  const signedFmt = (fn) => (cell) => {
+    const v = num(cell.getValue());
+    setClasses(cell.getElement(), { 'signed-pos': v > 0, 'signed-neg': v < 0 });
+    return fn(cell.getValue());
+  };
+  const toneFmt = (key, fn) => (cell) => {
+    const t = tone(key, cell.getValue()), el = cell.getElement();
+    setClasses(el, { 'cell-tone-bad': t.level === 'bad', 'cell-tone-warn': t.level === 'warn', 'cell-tone-good': t.level === 'good' });
+    el.title = t.level ? t.title : '';
+    return fn(cell.getValue());
+  };
+  const signedCol = (title, field, fn, extra) => numCol(title, field, fn, Object.assign({ formatter: signedFmt(fn) }, extra || {}));
+  const toneCol = (title, field, key, fn, extra) => numCol(title, field, fn, Object.assign({ formatter: toneFmt(key, fn || ((v) => (v === null ? '' : fix(v)))) }, extra || {}));
 
   // ---------- pages ----------
   const PAGES = [
@@ -180,17 +264,18 @@
     const rec = (M.quality || {}).reconciliation || {};
     const allPnl = num((M.official.windows.allTime || {}).pnl);
     root.innerHTML = `<div class="row row-cards">
-      ${kpi('官方累计盈亏', usd(allPnl), '全部历史 · 含现货', 'official')}
+      ${card('风险与亮点', flagsHtml(), { sub: W().label ? W().label + ' · 按经验阈值自动判定，悬停查看阈值' : '按经验阈值自动判定，悬停查看阈值' })}
+      ${kpi('官方累计盈亏', usd(allPnl), '全部历史 · 含现货', 'official', null, tone('total_pnl', allPnl))}
       ${kpi('当前账户净值', usd(cur.equity ?? M.official.equity), cur.mode ? '账户模式 ' + esc(cur.mode) : '', 'official')}
-      ${kpi('窗口盈亏', usd(p.pnl), W().label || '', 'hybrid')}
-      ${kpi('时间加权收益 TWR', pct(p.twr), '年化 ' + pct(p.cagr), 'hybrid')}
-      ${kpi('最大回撤', pct(r.max_drawdown), usd(r.max_drawdown_usd) + ' 累计盈亏回撤', 'hybrid')}
-      ${kpi('Sharpe', fix(r.sharpe), 'Sortino ' + fix(r.sortino), 'hybrid')}
-      ${kpi('回合胜率', pct(b.win_rate), int(b.campaigns_evaluated) + ' 个完整回合', 'rebuilt')}
-      ${kpi('盈亏比', fix(b.payoff_ratio), 'Profit factor ' + fix(b.profit_factor), 'rebuilt')}
+      ${kpi('窗口盈亏', usd(p.pnl), W().label || '', 'hybrid', null, tone('total_pnl', p.pnl))}
+      ${kpi('时间加权收益 TWR', pct(p.twr), '年化 ' + pct(p.cagr), 'hybrid', null, isNum(num(p.cagr)) ? tone('cagr', p.cagr) : tone('twr', p.twr))}
+      ${kpi('最大回撤', pct(r.max_drawdown), usd(r.max_drawdown_usd) + ' 累计盈亏回撤', 'hybrid', null, tone('max_dd', r.max_drawdown))}
+      ${kpi('Sharpe', fix(r.sharpe), 'Sortino ' + fix(r.sortino), 'hybrid', null, tone('sharpe', r.sharpe))}
+      ${kpi('回合胜率', pct(b.win_rate), int(b.campaigns_evaluated) + ' 个完整回合', 'rebuilt', null, tone('win_rate', b.win_rate))}
+      ${kpi('盈亏比', fix(b.payoff_ratio), 'Profit factor ' + fix(b.profit_factor), 'rebuilt', null, tone('payoff', b.payoff_ratio))}
       ${kpi('官方成交额', usd(num((M.official.windows.allTime || {}).vlm)), '全部历史', 'official')}
-      ${kpi('当前杠杆', isNum(cur.leverage) ? cur.leverage.toFixed(cur.leverage < 0.1 ? 3 : 2) + '×' : '—', '仓位 ' + int(cur.position_count) + ' 个', 'official')}
-      ${kpi('对账残差', pct(rec.residual_pct), usd(rec.residual) + ' / 官方 ' + usd(rec.official), 'hybrid')}
+      ${kpi('当前杠杆', isNum(cur.leverage) ? cur.leverage.toFixed(cur.leverage < 0.1 ? 3 : 2) + '×' : '—', '仓位 ' + int(cur.position_count) + ' 个', 'official', null, tone('leverage_mean', cur.leverage))}
+      ${kpi('对账残差', pct(rec.residual_pct), usd(rec.residual) + ' / 官方 ' + usd(rec.official), 'hybrid', null, tone('recon_status', rec.status))}
       ${kpi('资金净流入', usd(p.net_flow), '窗口内隐含（净值−盈亏）', 'official')}
       ${card('账户净值', chartDiv('c-equity'), { col: 'col-lg-8', sub: '官方 portfolio 采样，日间按重建盈亏形状补点' })}
       ${card('资产构成', chartDiv('c-buckets'), { col: 'col-lg-4', sub: '当前快照' })}
@@ -245,8 +330,8 @@
     table('t-top', pos, [
       col('币种', 'coin'), col('DEX', 'dex'), col('方向', 'side'),
       numCol('数量', 'szi'), numCol('名义价值', 'notional', (v) => usd(v)), numCol('开仓价', 'entry_px'), numCol('标记价', 'mark_px'),
-      numCol('未实现盈亏', 'unrealized_pnl', (v) => usd(v)), numCol('杠杆', 'leverage'), numCol('强平价', 'liquidation_px'),
-      numCol('距强平', 'liq_distance', (v) => pct(v)),
+      signedCol('未实现盈亏', 'unrealized_pnl', (v) => usd(v)), toneCol('杠杆', 'leverage', 'position_leverage', (v) => fix(v, 0) + '×'), numCol('强平价', 'liquidation_px'),
+      toneCol('距强平', 'liq_distance', 'liq_distance', (v) => pct(v)),
     ], { height: Math.min(480, 60 + pos.length * 34) });
   };
 
@@ -259,14 +344,48 @@
   RENDER.scorecard = function (root) {
     const groups = (M.scorecard || {})[state.window] || [];
     const body = (g) => `<table class="table table-sm stat-table score-table mb-0"><tbody>${g.items.map((i) => {
-      return `<tr title="${esc(i.definition)}"><td>${esc(i.label)}<div class="def">${esc(i.definition)}</div></td>
+      const t = tone(i.key, i.value);
+      return `<tr class="${t.cls}" title="${esc(i.definition + (t.title ? '\n' + t.title : ''))}"><td>${toneIcon(t)}${esc(i.label)}<div class="def">${esc(i.definition)}</div></td>
         <td class="num">${(UNIT_FMT[i.unit] || fix)(i.value)}</td><td class="srccell"><span class="src">${SOURCE[i.source] || esc(i.source)}</span></td></tr>`;
     }).join('')}</tbody></table>`;
     root.innerHTML = `<div class="row row-cards">
-      <div class="col-12"><div class="small muted">窗口：${esc(W().label || '')}。来源：<b>官方</b> = portfolio 接口；<b>日序列</b> = 官方净值日序列；<b>成交</b> / <b>回合</b> = 可见成交（历史可能截断，见“数据质量”）；<b>K线</b> = MAE/MFE。“—”表示样本不足或不适用。</div></div>
+      <div class="col-12"><div class="small muted">窗口：${esc(W().label || '')}。来源：<b>官方</b> = portfolio 接口；<b>日序列</b> = 官方净值日序列；<b>成交</b> / <b>回合</b> = 可见成交（历史可能截断，见“数据质量”）；<b>K线</b> = MAE/MFE。“—”表示样本不足或不适用。</div>
+        <div class="small muted mt-1">${toneLegend()}</div></div>
       ${groups.map((g) => card(esc(g.group), body(g), { col: 'col-xl-6', flush: true })).join('')}
     </div>`;
   };
+
+  function toneLegend() {
+    return LEVELS.map((l) => `<span class="flag ${TONE[l][0]}">${toneIcon({ icon: TONE[l][1] })}${TONE[l][2]}</span>`).join('')
+      + ' 按通用经验阈值着色，不构成投资判断；悬停行查看阈值。';
+  }
+
+  // Flags for the overview: every rated scorecard item of the window plus a
+  // few live-account checks, worst first.
+  function flagsHtml() {
+    const flags = [];
+    ((M.scorecard || {})[state.window] || []).forEach((g) => g.items.forEach((i) => {
+      const t = tone(i.key, i.value);
+      if (t.level) flags.push({ t, label: i.label, value: (UNIT_FMT[i.unit] || fix)(i.value) });
+    }));
+    const cur = M.current || {}, q = M.quality || {}, rec = q.reconciliation || {};
+    const add = (key, raw, label, value) => { const t = tone(key, raw); if (t.level) flags.push({ t, label, value }); };
+    if (cur.nearest_liquidation) add('liq_distance', cur.nearest_liquidation.liq_distance, '最近强平距离 ' + esc(cur.nearest_liquidation.coin), pct(cur.nearest_liquidation.liq_distance));
+    const lev = Math.max(...(cur.positions || []).map((x) => num(x.leverage)).filter(isNum), -Infinity);
+    if (isNum(lev)) add('position_leverage', lev, '最高持仓杠杆', fix(lev, 0) + '×');
+    add('liquidations', (M.behavior || {}).liquidated_campaigns, '被强平回合', int((M.behavior || {}).liquidated_campaigns));
+    add('recon_status', rec.status, '对账', ({ ok: '通过', warn: '有偏差', fail: '失败' })[rec.status] + (isNum(num(rec.residual_pct)) ? ' ' + pct(rec.residual_pct, 1) : ''));
+    const trunc = (q.truncation || {}).status;
+    if (trunc && trunc !== 'complete') {
+      flags.push({ t: { level: 'warn', cls: TONE.warn[0], icon: TONE.warn[1], title: '回合类指标只覆盖可见成交，见“数据质量”' },
+        label: '历史', value: trunc === 'api_visible_gaps' ? '中段有缺口' : '早期被截断' });
+    }
+    flags.sort((a, b) => LEVELS.indexOf(a.t.level) - LEVELS.indexOf(b.t.level));
+    const chip = (f) => `<span class="flag ${f.t.cls}"${toneAttr(f.t)}>${toneIcon(f.t)}${f.label} <b>${f.value}</b></span>`;
+    const risks = flags.filter((f) => f.t.level !== 'good'), goods = flags.filter((f) => f.t.level === 'good');
+    return `<div class="flag-row"><span class="flag-head">风险信号</span>${risks.map(chip).join('') || '<span class="muted small">未发现明显风险信号</span>'}</div>
+      <div class="flag-row"><span class="flag-head">亮点</span>${goods.map(chip).join('') || '<span class="muted small">无</span>'}</div>`;
+  }
 
   function profileHtml() {
     const prof = M.profile || {}, tags = prof.tags || {}, rules = prof.rules || {};
@@ -296,7 +415,8 @@
     root.innerHTML = `<div class="row row-cards">
       ${card('盈亏分解（永续，重建区间）', chartDiv('c-wf'), { col: 'col-lg-6', sub: '各项 + 残差 = 官方' })}
       ${card('窗口收益指标', statTable([
-        ['盈亏', usd(p.pnl), '官方 ' + usd(p.official_pnl)], ['TWR', pct(p.twr)], ['年化 CAGR', pct(p.cagr), '≥30 天才计算'],
+        ['盈亏', usd(p.pnl), '官方 ' + usd(p.official_pnl), tone('total_pnl', p.pnl)], ['TWR', pct(p.twr), undefined, tone('twr', p.twr)],
+        ['年化 CAGR', pct(p.cagr), '≥30 天才计算', tone('cagr', p.cagr)],
         ['XIRR（资金加权）', pct(p.xirr)], ['投入资本回报', pct(p.roi_on_invested), '盈亏 / (期初 + 入金)'],
         ['盈利日占比', pct(p.positive_day_ratio)], ['日度 Profit factor', fix(p.profit_factor_daily)],
         ['最好的一天', p.best_day ? usd(p.best_day.pnl) + ' · ' + p.best_day.period : '—'],
@@ -334,17 +454,21 @@
         xAxis: valueAxis(c), yAxis: { type: 'category', data: pick.map((x) => x[0]), axisLabel: { color: c.ink2 }, axisLine: { lineStyle: { color: c.axis } }, axisTick: { show: false } },
         series: [{ type: 'bar', barMaxWidth: 12, data: pick.map((x) => ({ value: x[1], itemStyle: { color: x[1] >= 0 ? c.pos : c.neg, borderRadius: x[1] >= 0 ? [0, 2, 2, 0] : [2, 0, 0, 2] } })) }] });
     });
-    table('t-month', (all.monthly || []).slice().reverse(), [col('月份', 'period'), numCol('盈亏', 'pnl', (v) => usd(v, 0)), numCol('收益率', 'ret', (v) => pct(v, 2))], { height: 320 });
+    table('t-month', (all.monthly || []).slice().reverse(), [col('月份', 'period'), signedCol('盈亏', 'pnl', (v) => usd(v, 0)), signedCol('收益率', 'ret', (v) => pct(v, 2))], { height: 320 });
   };
 
   function windowTable() {
     const ws = M.windows || {};
     const keys = Object.keys(ws);
-    const rows = [['盈亏', (w) => usd(w.performance.pnl)], ['官方盈亏', (w) => usd(w.performance.official_pnl)], ['TWR', (w) => pct(w.performance.twr)],
-      ['最大回撤', (w) => pct(w.risk.max_drawdown)], ['波动率（年化）', (w) => pct(w.risk.volatility)], ['Sharpe', (w) => fix(w.risk.sharpe)],
-      ['Sortino', (w) => fix(w.risk.sortino)], ['VaR 95（日）', (w) => pct(w.risk.var95, 2)], ['官方成交额', (w) => usd(w.official_volume)]];
+    // [label, format, rating key, raw value]
+    const rows = [['盈亏', (w) => usd(w.performance.pnl), 'total_pnl', (w) => w.performance.pnl], ['官方盈亏', (w) => usd(w.performance.official_pnl)],
+      ['TWR', (w) => pct(w.performance.twr), 'twr', (w) => w.performance.twr],
+      ['最大回撤', (w) => pct(w.risk.max_drawdown), 'max_dd', (w) => w.risk.max_drawdown], ['波动率（年化）', (w) => pct(w.risk.volatility), 'volatility', (w) => w.risk.volatility],
+      ['Sharpe', (w) => fix(w.risk.sharpe), 'sharpe', (w) => w.risk.sharpe], ['Sortino', (w) => fix(w.risk.sortino), 'sortino', (w) => w.risk.sortino],
+      ['VaR 95（日）', (w) => pct(w.risk.var95, 2), 'var95', (w) => w.risk.var95], ['官方成交额', (w) => usd(w.official_volume)]];
+    const cell = (r, w) => { const t = r[2] ? tone(r[2], r[3](w)) : null; return `<td class="num ${t && t.level ? 'cell-' + t.cls : ''}"${t && t.level ? toneAttr(t) : ''}>${r[1](w)}</td>`; };
     return `<div class="table-responsive"><table class="table table-sm stat-table mb-0"><thead><tr><th></th>${keys.map((k) => `<th class="num">${esc(ws[k].label)}</th>`).join('')}</tr></thead><tbody>
-      ${rows.map((r) => `<tr><td>${r[0]}</td>${keys.map((k) => `<td class="num">${r[1](ws[k])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+      ${rows.map((r) => `<tr><td>${r[0]}</td>${keys.map((k) => cell(r, ws[k])).join('')}</tr>`).join('')}</tbody></table></div>`;
   }
 
   function waterfall(c, bd) {
@@ -406,20 +530,21 @@
   RENDER.risk = function (root) {
     const r = W().risk || {}, all = M.risk || {}, cur = M.current || {};
     root.innerHTML = `<div class="row row-cards">
-      ${kpi('最大回撤', pct(r.max_drawdown), '当前回撤 ' + pct(r.current_drawdown), 'hybrid')}
-      ${kpi('年化波动率', pct(r.volatility), 'VaR95 ' + pct(r.var95, 2), 'hybrid')}
-      ${kpi('Sharpe / Sortino', fix(r.sharpe) + ' / ' + fix(r.sortino), 'Calmar ' + fix(r.calmar), 'hybrid')}
-      ${kpi('Omega / 尾部比率', fix(r.omega) + ' / ' + fix(r.tail_ratio), '最长水下 ' + fix((r.drawdown_stats || {}).longest_underwater_days, 0) + ' 天', 'hybrid')}
-      ${kpi('有效杠杆均值', fix(all.leverage_mean) + '×', 'p95 ' + fix(all.leverage_p95) + '× · 最高 ' + fix(all.leverage_max) + '×', 'rebuilt')}
+      ${kpi('最大回撤', pct(r.max_drawdown), '当前回撤 ' + pct(r.current_drawdown), 'hybrid', null, tone('max_dd', r.max_drawdown))}
+      ${kpi('年化波动率', pct(r.volatility), 'VaR95 ' + pct(r.var95, 2), 'hybrid', null, tone('volatility', r.volatility))}
+      ${kpi('Sharpe / Sortino', fix(r.sharpe) + ' / ' + fix(r.sortino), 'Calmar ' + fix(r.calmar), 'hybrid', null, tone('sharpe', r.sharpe))}
+      ${kpi('Omega / 尾部比率', fix(r.omega) + ' / ' + fix(r.tail_ratio), '最长水下 ' + fix((r.drawdown_stats || {}).longest_underwater_days, 0) + ' 天', 'hybrid', null, tone('omega', r.omega))}
+      ${kpi('有效杠杆均值', fix(all.leverage_mean) + '×', 'p95 ' + fix(all.leverage_p95) + '× · 最高 ' + fix(all.leverage_max) + '×', 'rebuilt', null, tone('leverage_mean', all.leverage_mean))}
       ${kpi('持仓集中度 HHI', fix(cur.concentration_hhi), '1 = 单一持仓', 'official')}
       ${card('水下回撤（TWR）', chartDiv('c-uw'), { col: 'col-lg-8' })}
       ${card('风险统计', statTable([
-        ['CVaR 95（日）', pct(r.cvar95, 2)], ['恢复因子', fix(r.recovery_factor), '净盈亏 ÷ 最大回撤金额'],
-        ['回撤次数（≥5%）', int((r.drawdown_stats || {}).count), '平均深度 ' + pct((r.drawdown_stats || {}).avg_depth, 1)],
-        ['水下 / 新高时间占比', pct((r.drawdown_stats || {}).underwater_ratio, 0) + ' / ' + pct((r.drawdown_stats || {}).new_high_ratio, 0)],
-        ['$ 最大回撤（累计盈亏）', usd(r.max_drawdown_usd)], ['被强平回合', int((M.behavior || {}).liquidated_campaigns)],
+        ['CVaR 95（日）', pct(r.cvar95, 2), undefined, tone('cvar95', r.cvar95)], ['恢复因子', fix(r.recovery_factor), '净盈亏 ÷ 最大回撤金额', tone('recovery_factor', r.recovery_factor)],
+        ['回撤次数（≥5%）', int((r.drawdown_stats || {}).count), '平均深度 ' + pct((r.drawdown_stats || {}).avg_depth, 1), tone('avg_dd_depth', (r.drawdown_stats || {}).avg_depth)],
+        ['水下 / 新高时间占比', pct((r.drawdown_stats || {}).underwater_ratio, 0) + ' / ' + pct((r.drawdown_stats || {}).new_high_ratio, 0), undefined, tone('underwater_ratio', (r.drawdown_stats || {}).underwater_ratio)],
+        ['$ 最大回撤（累计盈亏）', usd(r.max_drawdown_usd)], ['被强平回合', int((M.behavior || {}).liquidated_campaigns), undefined, tone('liquidations', (M.behavior || {}).liquidated_campaigns)],
         ['强平成交额', usd((M.activity || {}).liquidation_volume)], ['ADL 成交', int((M.activity || {}).adl_fills)],
-        ['多空净敞口', usd(cur.net_exposure)], ['最近强平距离', cur.nearest_liquidation ? esc(cur.nearest_liquidation.coin) + ' ' + pct(cur.nearest_liquidation.liq_distance) : '—'],
+        ['多空净敞口', usd(cur.net_exposure)], ['最近强平距离', cur.nearest_liquidation ? esc(cur.nearest_liquidation.coin) + ' ' + pct(cur.nearest_liquidation.liq_distance) : '—', undefined,
+          cur.nearest_liquidation ? tone('liq_distance', cur.nearest_liquidation.liq_distance) : null],
       ]), { col: 'col-lg-4', flush: true })}
       ${card('有效杠杆（永续名义 / 净值）', chartDiv('c-lev', 'short'), { col: 'col-lg-6', sub: '重建' })}
       ${card('多空敞口', chartDiv('c-ls', 'short'), { col: 'col-lg-6', sub: '重建，按日收盘' })}
@@ -451,10 +576,10 @@
     const b = M.behavior || {}, a = M.activity || {};
     root.innerHTML = `<div class="row row-cards">
       ${kpi('完整回合', int(b.campaigns_evaluated), '排除不完整 ' + int(b.campaigns_excluded), 'rebuilt')}
-      ${kpi('胜率（含保本 / 严格）', pct(b.win_rate) + ' / ' + pct(b.win_rate_strict), '连胜 ' + int(b.max_win_streak) + ' · 连亏 ' + int(b.max_loss_streak), 'rebuilt')}
-      ${kpi('平均盈利 / 亏损', usd(b.avg_win) + ' / ' + usd(b.avg_loss), '每回合期望 ' + usd(b.expectancy), 'rebuilt')}
+      ${kpi('胜率（含保本 / 严格）', pct(b.win_rate) + ' / ' + pct(b.win_rate_strict), '连胜 ' + int(b.max_win_streak) + ' · 连亏 ' + int(b.max_loss_streak), 'rebuilt', null, tone('win_rate', b.win_rate))}
+      ${kpi('平均盈利 / 亏损', usd(b.avg_win) + ' / ' + usd(b.avg_loss), '每回合期望 ' + usd(b.expectancy), 'rebuilt', null, tone('expectancy', b.expectancy))}
       ${kpi('持仓中位时长', hours(b.median_hold_hours), '', 'rebuilt')}
-      ${kpi('Maker 占比', pct(a.maker_share), 'TWAP ' + pct(a.twap_share), 'rebuilt')}
+      ${kpi('Maker 占比', pct(a.maker_share), 'TWAP ' + pct(a.twap_share), 'rebuilt', null, tone('maker_share', a.maker_share))}
       ${kpi('活跃天数', int(a.active_days), '日均 ' + fix(a.fills_per_active_day, 0) + ' 笔成交', 'rebuilt')}
       ${card('持仓时长 × 回合盈亏', chartDiv('c-scatter', 'tall'), { col: 'col-lg-8', sub: '横轴对数刻度；含资金费' })}
       ${card('交易行为', statTable([
@@ -523,9 +648,9 @@
           markLine: { silent: true, symbol: 'none', lineStyle: { color: c.muted, type: 'dashed', width: 1 }, label: { color: c.muted, formatter: '前 10%' }, data: [{ xAxis: 0.1 }] } }] });
     });
     table('t-bycoin', ((M.windows || {}).all || {}).by_coin || [], [col('币种', 'coin'), col('类型', 'market_type', { width: 70 }),
-      numCol('净额', 'net', (v) => usd(v)), numCol('已实现', 'realized', (v) => usd(v)), numCol('手续费', 'fees', (v) => usd(v)),
-      numCol('资金费', 'funding', (v) => usd(v)), numCol('成交额', 'volume', (v) => usd(v)), numCol('成交笔数', 'fills', int),
-      numCol('完整回合', 'campaigns', int), numCol('胜率', 'win_rate', (v) => pct(v, 0)), numCol('做多盈亏', 'long_pnl', (v) => usd(v)), numCol('做空盈亏', 'short_pnl', (v) => usd(v))],
+      signedCol('净额', 'net', (v) => usd(v)), signedCol('已实现', 'realized', (v) => usd(v)), numCol('手续费', 'fees', (v) => usd(v)),
+      signedCol('资金费', 'funding', (v) => usd(v)), numCol('成交额', 'volume', (v) => usd(v)), numCol('成交笔数', 'fills', int),
+      numCol('完整回合', 'campaigns', int), numCol('胜率', 'win_rate', (v) => pct(v, 0)), signedCol('做多盈亏', 'long_pnl', (v) => usd(v)), signedCol('做空盈亏', 'short_pnl', (v) => usd(v))],
     { height: 420, tabulator: { initialSort: [{ column: 'net', dir: 'desc' }] } });
     if (M.excursion && M.excursion.evaluated) {
       const ex = M.excursion.rows;
@@ -543,11 +668,11 @@
     }
     chart(document.getElementById('c-phist'), (c) => bars(c, (b.pnl_histogram || []).map((h) => [usd(h.from) + ' ~ ' + usd(h.to), h.count, (h.from + h.to) / 2])));
     table('t-coins', (a.top_coins || []), [col('币种', 'coin'), numCol('成交额', 'volume', (v) => usd(v)), numCol('成交笔数', 'fills', int),
-      numCol('已实现盈亏', 'realized', (v) => usd(v)), numCol('手续费', 'fees', (v) => usd(v))], { height: 420 });
+      signedCol('已实现盈亏', 'realized', (v) => usd(v)), numCol('手续费', 'fees', (v) => usd(v))], { height: 420 });
     table('t-camp', 'campaigns', [timeCol('开仓', 'open_time'), timeCol('平仓', 'close_time'), col('币种', 'coin'), col('方向', 'direction_label'), col('状态', 'status'),
       { title: '完整', field: 'complete', formatter: yesFmt, hozAlign: 'center', headerFilter: 'tickCross', headerFilterParams: { tristate: true } },
-      numCol('最大仓位', 'max_size'), numCol('开仓名义', 'observed_entry_notional', (v) => usd(v)), numCol('净盈亏', 'net_pnl', (v) => usd(v)),
-      numCol('资金费', 'funding', (v) => usd(v)), numCol('含资金费净盈亏', 'net_pnl_with_funding', (v) => usd(v)),
+      numCol('最大仓位', 'max_size'), numCol('开仓名义', 'observed_entry_notional', (v) => usd(v)), signedCol('净盈亏', 'net_pnl', (v) => usd(v)),
+      signedCol('资金费', 'funding', (v) => usd(v)), signedCol('含资金费净盈亏', 'net_pnl_with_funding', (v) => usd(v)),
       numCol('持仓时长', 'duration_ms', (v) => (v === null ? '' : hours(v / 3600000))), numCol('成交数', 'fill_count', int), col('结束方式', 'ended_by'), col('质量标记', 'quality')]);
   };
 
@@ -572,9 +697,10 @@
       ${card('金库', '<div id="t-vault" class="table-host"></div>', { col: 'col-lg-6', flush: true })}
     </div>`;
     table('t-pos', cur.positions || [], [col('币种', 'coin'), col('DEX', 'dex'), col('方向', 'side'), numCol('数量', 'szi'), numCol('名义价值', 'notional', (v) => usd(v)),
-      numCol('开仓价', 'entry_px'), numCol('标记价', 'mark_px'), numCol('未实现盈亏', 'unrealized_pnl', (v) => usd(v)), numCol('ROE', 'roe', (v) => pct(v)),
-      col('杠杆类型', 'leverage_type'), numCol('杠杆', 'leverage'), numCol('强平价', 'liquidation_px'), numCol('距强平', 'liq_distance', (v) => pct(v)),
-      numCol('占用保证金', 'margin_used', (v) => usd(v)), numCol('开仓以来资金费', 'cum_funding_since_open', (v) => usd(v))], { height: 360 });
+      numCol('开仓价', 'entry_px'), numCol('标记价', 'mark_px'), signedCol('未实现盈亏', 'unrealized_pnl', (v) => usd(v)), signedCol('ROE', 'roe', (v) => pct(v)),
+      col('杠杆类型', 'leverage_type'), toneCol('杠杆', 'leverage', 'position_leverage', (v) => fix(v, 0) + '×'), numCol('强平价', 'liquidation_px'),
+      toneCol('距强平', 'liq_distance', 'liq_distance', (v) => pct(v)),
+      numCol('占用保证金', 'margin_used', (v) => usd(v)), signedCol('开仓以来资金费', 'cum_funding_since_open', (v) => usd(v))], { height: 360 });
     chart(document.getElementById('c-bk'), (c) => {
       const rows = (cur.buckets || []).slice().sort((x, y) => y.value - x.value);
       return baseOption(c, { grid: { left: 110, right: 40, top: 10, bottom: 30 }, tooltip: { trigger: 'item', valueFormatter: (v) => usd(v, 0) }, xAxis: valueAxis(c),
@@ -582,14 +708,14 @@
         series: [{ type: 'bar', barMaxWidth: 14, data: rows.map((r) => ({ value: r.value, itemStyle: { color: c.s1, borderRadius: [0, 2, 2, 0] } })) }] });
     });
     table('t-spot', cur.spot || [], [col('币种', 'coin'), numCol('数量', 'total'), numCol('冻结', 'hold'), numCol('价格', 'price'), numCol('价值', 'value', (v) => usd(v)),
-      numCol('成本', 'entry_ntl', (v) => usd(v)), numCol('浮盈', 'unrealized_pnl', (v) => usd(v))], { height: 300 });
+      numCol('成本', 'entry_ntl', (v) => usd(v)), signedCol('浮盈', 'unrealized_pnl', (v) => usd(v))], { height: 300 });
     // Sub-accounts analyzed with --include-subaccounts carry their own official figures.
     const subInfo = {};
     (M.sub_account_summary || []).forEach((s) => { subInfo[s.address] = s; });
     const subRows = (cur.sub_accounts || []).map((s) => Object.assign({}, s, subInfo[s.address] || {}));
     const subCols = [col('名称', 'name'), col('地址', 'address'), numCol('永续净值', 'account_value', (v) => usd(v)), numCol('持仓数', 'positions', int)];
     if ((M.sub_account_summary || []).length) {
-      subCols.push(numCol('官方累计盈亏', 'official_pnl', (v) => usd(v)), numCol('最大回撤', 'max_drawdown', (v) => pct(v, 1)),
+      subCols.push(signedCol('官方累计盈亏', 'official_pnl', (v) => usd(v)), toneCol('最大回撤', 'max_drawdown', 'max_dd', (v) => pct(v, 1)),
         col('对账', 'reconciliation'), col('历史', 'history'));
     }
     table('t-sub', subRows, subCols, { height: 240 });
@@ -602,7 +728,7 @@
       ${kpi('手续费合计', usd(k.fees), pct(k.fee_bps / 1e4, 3) + ' 成交额（' + fix(k.fee_bps, 2) + ' bps）', 'rebuilt')}
       ${kpi('资金费净额', usd(k.funding_net), '收 ' + usd(k.funding_received) + ' · 付 ' + usd(k.funding_paid), 'rebuilt')}
       ${kpi('Builder 费', usd(k.builder_fees), '已含于手续费，单列', 'rebuilt')}
-      ${kpi('成本 / 毛利', pct(k.cost_to_gross), '手续费 + 净付资金费', 'rebuilt')}
+      ${kpi('成本 / 毛利', pct(k.cost_to_gross), '手续费 + 净付资金费', 'rebuilt', null, tone('cost_to_gross', k.cost_to_gross))}
       ${kpi('费率档', k.taker_rate !== null ? pct(k.taker_rate, 3) + ' / ' + pct(k.maker_rate, 3) : '—', 'taker / maker', 'official')}
       ${kpi('折扣', '推荐 ' + pct(k.referral_discount, 0) + ' · 质押 ' + pct(k.staking_discount, 0), '', 'official')}
       ${card('累计手续费与资金费', chartDiv('c-cost'), { col: 'col-lg-7' })}
@@ -620,7 +746,7 @@
         yAxis: { type: 'category', data: pick.map((x) => x.coin), axisLabel: { color: c.ink2 }, axisLine: { lineStyle: { color: c.axis } }, axisTick: { show: false } },
         series: [{ type: 'bar', barMaxWidth: 12, data: pick.map((x) => ({ value: x.funding, itemStyle: { color: x.funding >= 0 ? c.pos : c.neg, borderRadius: 2 } })) }] });
     });
-    table('t-funding', 'funding', [timeCol('时间', 'time'), col('币种', 'coin'), numCol('金额', 'usdc'), numCol('持仓', 'szi'), numCol('费率', 'fundingRate'), col('计价', 'pnl_token')]);
+    table('t-funding', 'funding', [timeCol('时间', 'time'), col('币种', 'coin'), signedCol('金额', 'usdc', (v) => (v === null ? '' : Number(v).toLocaleString('en-US', { maximumFractionDigits: 6 }))), numCol('持仓', 'szi'), numCol('费率', 'fundingRate'), col('计价', 'pnl_token')]);
   };
 
   RENDER.flows = function (root) {
@@ -657,11 +783,11 @@
     const ev = (t.evidence || []).map((e) => `<li><b>${esc(e.label)}</b><br><span class="muted small">${esc(detail(e.detail))}</span></li>`).join('');
     const truncText = { complete: '可见历史完整', api_visible_gaps: '历史中段有缺口', api_visible_truncated: '早期历史被截断' }[t.status] || t.status;
     root.innerHTML = `<div class="row row-cards">
-      ${kpi('对账状态', statusBadge(rec.status), (rec.reasons || []).join(', ') || '&nbsp;', 'hybrid')}
-      ${kpi('对账残差', usd(rec.residual), pct(rec.residual_pct, 2) + ' 官方', 'hybrid')}
+      ${kpi('对账状态', statusBadge(rec.status), (rec.reasons || []).join(', ') || '&nbsp;', 'hybrid', null, tone('recon_status', rec.status))}
+      ${kpi('对账残差', usd(rec.residual), pct(rec.residual_pct, 2) + ' 官方', 'hybrid', null, tone('recon_status', rec.status))}
       ${kpi('周度区间通过', int((rec.interval_status || {}).ok) + ' / ' + int(((rec.interval_status || {}).ok || 0) + ((rec.interval_status || {}).warn || 0) + ((rec.interval_status || {}).fail || 0)), '偏差 ' + int((rec.interval_status || {}).warn) + ' · 失败 ' + int((rec.interval_status || {}).fail), 'hybrid')}
-      ${kpi('成交额覆盖率', pct(t.volume_coverage, 1), '含补录缺口 ' + pct(q.volume_coverage_with_imputed, 1), 'hybrid')}
-      ${kpi('仓位断点', int(q.position_break_count), '快照不一致 ' + int((q.snapshot_mismatch || []).length), 'rebuilt')}
+      ${kpi('成交额覆盖率', pct(t.volume_coverage, 1), '含补录缺口 ' + pct(q.volume_coverage_with_imputed, 1), 'hybrid', null, tone('volume_coverage', t.volume_coverage))}
+      ${kpi('仓位断点', int(q.position_break_count), '快照不一致 ' + int((q.snapshot_mismatch || []).length), 'rebuilt', null, tone('position_breaks', q.position_break_count))}
       ${kpi('资产组合残差', pct(num(comp.residual_pct) / 100, 2), '快照合计 vs 官方净值，差 ' + usd(comp.residual), 'official')}
       ${card('历史完整性：' + esc(truncText), `<ul class="evidence mb-2">${ev || '<li>未发现截断证据</li>'}</ul>
         <div class="small muted">可见成交起点 ${date(t.available_from_ms)} · 官方净值起点 ${date(t.official_start_ms)} · 可见成交额 ${usd(t.visible_volume)} / 官方 ${usd(t.official_volume)}</div>`, { col: 'col-lg-6' })}
@@ -680,7 +806,7 @@
       tooltip: Object.assign(baseOption(c).tooltip, { valueFormatter: (v) => usd(v, 0) }),
       series: [{ type: 'bar', name: '残差', barMaxWidth: 10, data: (q.reconciliation_intervals || []).map((i) => ({ value: [i.end_ms, i.residual], itemStyle: { color: i.residual >= 0 ? c.pos : c.neg, borderRadius: 2 } })) }] }));
     table('t-rec', (q.reconciliation_intervals || []).slice().reverse(), [timeCol('起', 'start_ms'), timeCol('止', 'end_ms'), numCol('官方', 'official', (v) => usd(v, 0)),
-      numCol('重建', 'reconstructed', (v) => usd(v, 0)), numCol('残差', 'residual', (v) => usd(v, 0)), col('状态', 'status')], { height: 380 });
+      numCol('重建', 'reconstructed', (v) => usd(v, 0)), signedCol('残差', 'residual', (v) => usd(v, 0)), col('状态', 'status', { formatter: (cell) => statusBadge(cell.getValue(), (STATUS[cell.getValue()] || STATUS.no_data)[2]) })], { height: 380 });
     table('t-brk', q.position_breaks || [], [timeCol('时间', 'time'), col('币种', 'coin'), numCol('应为', 'expected'), numCol('实际', 'observed'), numCol('差额', 'delta'), numCol('下一笔成交价', 'px'), col('类型', 'kind')], { height: 380 });
   };
 
@@ -691,7 +817,7 @@
     </div>`;
     table('t-ops', 'operations', [timeCol('时间', 'time'), col('币种', 'coin'), col('动作', 'action_label'), col('方向', 'direction_label'), col('买卖', 'side', { width: 60 }),
       numCol('价格', 'price'), numCol('数量', 'size'), numCol('名义', 'notional', (v) => usd(v)), numCol('成交前仓位', 'start_position'), numCol('成交后仓位', 'end_position'),
-      numCol('已实现盈亏', 'closed_pnl', (v) => usd(v, 2)), numCol('手续费', 'fee'), col('费币', 'fee_token'),
+      signedCol('已实现盈亏', 'closed_pnl', (v) => usd(v, 2)), numCol('手续费', 'fee'), col('费币', 'fee_token'),
       { title: 'Maker', field: 'maker', formatter: yesFmt, hozAlign: 'center', headerFilter: 'tickCross', headerFilterParams: { tristate: true } },
       { title: 'TWAP', field: 'twap', formatter: yesFmt, hozAlign: 'center' }, { title: '强平', field: 'liquidation', formatter: yesFmt, hozAlign: 'center' },
       col('原始方向', 'dir_raw'), col('订单号', 'oid'), col('来源', 'source'), col('质量', 'quality')], { height: 640 });
