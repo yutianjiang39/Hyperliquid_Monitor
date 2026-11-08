@@ -14,10 +14,10 @@ if [[ ! -f "$HL_SCRIPT_DIR/app.py" ]]; then
 fi
 if [[ ! -x "$HL_SCRIPT_DIR/.venv/bin/python" ]]; then
     printf '%s\n' '首次运行：正在准备本目录的 Python 环境。'
-    bash "$HL_SCRIPT_DIR/install_macos_linux.sh"
+    bash "$HL_SCRIPT_DIR/scripts/install_macos_linux.sh"
 fi
 if ! "$HL_SCRIPT_DIR/.venv/bin/python" -c 'import requests, boto3, lz4.frame, textual, rich' >/dev/null 2>&1; then
-    printf '%s\n' '运行依赖不完整。请先执行 bash install_macos_linux.sh，再重新启动。' >&2
+    printf '%s\n' '运行依赖不完整。请先执行 bash scripts/install_macos_linux.sh，再重新启动。' >&2
     exit 1
 fi
 if [[ $# -eq 0 ]]; then

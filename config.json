@@ -1,5 +1,5 @@
 {
-  "version": "2.3.2",
+  "version": "3.1.0",
   "wallet": "",
   "start_date_utc": "",
   "end_date_utc": "",
@@ -7,10 +7,35 @@
   "output_dir": "reports",
   "chunk_size": 1000,
   "incremental_api": true,
+  "leaderboard": false,
+  "include_subaccounts": false,
+  "plugins": {
+    "hydromancer": {
+      "enabled": false,
+      "url": ""
+    },
+    "dune": {
+      "enabled": false,
+      "query_id": ""
+    }
+  },
   "aws": {
     "profile": "",
     "region": "us-east-1",
     "max_download_gib": 10.0,
     "max_objects": 0
+  },
+  "mae": false,
+  "backfill": {
+    "enabled": false,
+    "sources": [
+      "reservoir",
+      "official_s3"
+    ],
+    "max_cost_usd": 5.0,
+    "mode": "gaps",
+    "reservoir_bucket": "hydromancer-reservoir",
+    "reservoir_region": "ap-northeast-1",
+    "reservoir_prefix": ""
   }
 }

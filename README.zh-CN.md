@@ -79,7 +79,7 @@
 3. 首次运行自动创建项目专用 `.venv` 并安装依赖；随后进入终端窗口。
 4. 建议把窗口放大到至少 **100 列 × 30 行**，120 × 40 更舒适。Windows Terminal、PowerShell 或正常命令提示符均可作为终端宿主。
 
-如果需要分开安装/启动，可先双击 `install_windows.bat`，再启动。安装器只使用已有 Python，不安装 Python 本体，不请求管理员权限。
+如果需要分开安装/启动，可先双击 `scripts\install_windows.bat`，再启动。安装器只使用已有 Python，不安装 Python 本体，不请求管理员权限。
 
 ### macOS
 
@@ -92,7 +92,7 @@ bash start_macos_linux.sh
 首次运行同样会自动创建 `.venv`、安装依赖。如果系统默认 `python3` 版本较旧，可指定已安装的解释器：
 
 ```bash
-HL_PYTHON_BIN=/path/to/python3.12 bash install_macos_linux.sh
+HL_PYTHON_BIN=/path/to/python3.12 bash scripts/install_macos_linux.sh
 bash start_macos_linux.sh
 ```
 

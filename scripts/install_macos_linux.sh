@@ -2,7 +2,7 @@
 # Create an isolated environment in this folder; use an existing Python only.
 set -euo pipefail
 
-HL_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+HL_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd -- "$HL_SCRIPT_DIR"
 export PYTHONUTF8=1
 export PYTHONIOENCODING=utf-8
@@ -33,7 +33,7 @@ if [[ ! -x "$HL_SCRIPT_DIR/.venv/bin/python" ]]; then
     if [[ -z "$HL_SELECTED_PYTHON" ]]; then
         printf '%s\n' '未找到 Python 3.10 或更高版本。建议先安装 Python 3.11/3.12，然后重试。' >&2
         printf '%s\n' '官方下载：https://www.python.org/downloads/' >&2
-        printf '%s\n' '也可指定已有解释器：HL_PYTHON_BIN="/完整路径/python3" bash install_macos_linux.sh' >&2
+        printf '%s\n' '也可指定已有解释器：HL_PYTHON_BIN="/完整路径/python3" bash scripts/install_macos_linux.sh' >&2
         exit 1
     fi
     printf '%s\n' '正在创建本目录专用的 .venv 环境……'

@@ -12,7 +12,7 @@ if errorlevel 1 goto :directory_error
 if not exist "app.py" goto :missing_files
 if exist ".venv\Scripts\python.exe" goto :ready
 echo 首次运行：正在准备本目录的 Python 环境。
-call "%~dp0install_windows.bat" --from-launcher
+call "%~dp0scripts\install_windows.bat" --from-launcher
 if errorlevel 1 goto :finish
 
 :ready
@@ -33,7 +33,7 @@ goto :finish
 echo 缺少 app.py。请完整解压本地运行包，不要单独复制启动脚本。
 goto :finish
 :dependency_error
-echo 运行依赖不完整。请先双击 install_windows.bat 安装或修复依赖。
+echo 运行依赖不完整。请先双击 scripts\install_windows.bat 安装或修复依赖。
 goto :finish
 :directory_error
 echo 无法进入程序目录。请把压缩包完整解压到可写文件夹。

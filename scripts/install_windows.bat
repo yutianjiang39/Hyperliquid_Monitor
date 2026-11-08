@@ -11,7 +11,7 @@ set "PYLAUNCHER_ALWAYS_INSTALL="
 set "HL_EXIT_CODE=1"
 set "HL_NO_PAUSE="
 if /I "%~1"=="--from-launcher" set "HL_NO_PAUSE=1"
-pushd "%~dp0"
+pushd "%~dp0.."
 if errorlevel 1 goto :directory_error
 
 if not exist "requirements.txt" goto :missing_files
@@ -65,7 +65,7 @@ echo 正在安装运行依赖，首次安装需要联网……
 if errorlevel 1 goto :dependency_error
 ".venv\Scripts\python.exe" -c "import requests, boto3, lz4.frame, textual, rich, sqlite3; print('依赖检查通过。')"
 if errorlevel 1 goto :dependency_error
-echo 安装完成。双击 start_windows.bat 打开终端界面。
+echo 安装完成。双击根目录的 start_windows.bat 打开终端界面。
 set "HL_EXIT_CODE=0"
 goto :finish
 
