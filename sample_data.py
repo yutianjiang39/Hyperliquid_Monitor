@@ -41,22 +41,36 @@ def demo_portfolio(fills, ledger, funding):
     changes = []
     for row in fills:
         if row.get("closedPnl") is not None and row.get("fee") is not None:
-            changes.append((row["time"], D(row["closedPnl"]) - D(row["fee"])))
+            changes.append((row["time"], D(row["closedPnl"]) - D(row["fee"]), False))
     for row in funding:
-        changes.append((row["time"], D(row["delta"]["usdc"])))
+        changes.append((row["time"], D(row["delta"]["usdc"]), False))
     for row in ledger:
         delta = row["delta"]
-        changes.append((row["time"], D(delta["usdc"]) * (1 if delta["type"] == "deposit" else -1)))
+        changes.append((row["time"], D(delta["usdc"]) * (1 if delta["type"] == "deposit" else -1), True))
     changes.sort(key=lambda x: x[0])
+    volume = sum(D(row["px"]) * D(row["sz"]) for row in fills)
     step = 15 * 60 * 1000
     start = min(row["time"] for row in fills) - step
     end = max(row["time"] for row in fills) + 2 * step
-    index, balance, history = 0, D("10000"), []
+    index, balance, pnl, history, pnl_history = 0, D("10000"), D(0), [], []
     for stamp in range(start, end + 1, step):
         while index < len(changes) and changes[index][0] <= stamp:
             balance += changes[index][1]
+            if not changes[index][2]:
+                pnl += changes[index][1]
             index += 1
         history.append([stamp, str(balance)])
-    return [["allTime", {"accountValueHistory": history}],
-            ["perpAllTime", {"accountValueHistory": history}]]
+        pnl_history.append([stamp, str(pnl)])
+    window = {"accountValueHistory": history, "pnlHistory": pnl_history, "vlm": str(volume)}
+    return [["allTime", window], ["perpAllTime", window]]
+
+
+def demo_snapshot(portfolio):
+    """Flat synthetic account at the last demo sample (standard account mode)."""
+    stamp, value = portfolio[0][1]["accountValueHistory"][-1]
+    return {"time": stamp, "wallet": "SYNTHETIC_DEMO", "mode": "default", "errors": {},
+            "dexes": {"": {"dex": "", "account_value": value, "total_ntl_pos": "0", "margin_used": "0",
+                           "withdrawable": value, "positions": [], "time": stamp}},
+            "spot": [], "sub_accounts": [], "vaults": [], "staking": {}, "open_orders": 0,
+            "fees": {"cross_rate": "0.00045", "add_rate": "0.00015"}, "cum_volume": None}
 

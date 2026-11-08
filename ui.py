@@ -203,7 +203,7 @@ class ImportScreen(ModalScreen[dict | None]):
             yield Static("导入已有历史", id="import-title")
             yield Static("填写本地 JSON / JSONL / CSV 文件路径。成交应属于当前钱包；重复记录会合并。", id="import-note")
             yield Input(placeholder="例如 C:\\data\\fills.jsonl 或 /Users/me/fills.csv", id="import-path")
-            yield Select([("成交记录", "fills"), ("资金流水", "ledger"), ("资金费", "funding"), ("官方权益历史", "portfolio"), ("USDC 账面余额基准", "balance")], value="fills", allow_blank=False, id="import-kind")
+            yield Select([("成交记录", "fills"), ("资金流水", "ledger"), ("资金费", "funding"), ("官方权益历史", "portfolio")], value="fills", allow_blank=False, id="import-kind")
             yield Select([("数字时间戳：毫秒", "ms"), ("数字时间戳：秒", "s")], value="ms", allow_blank=False, id="import-unit")
             with Horizontal(id="import-buttons"):
                 yield Button("取消", id="import-cancel")
@@ -213,16 +213,13 @@ class ImportScreen(ModalScreen[dict | None]):
     def import_kind_changed(self, event):
         kind = event.value
         unit = self.query_one("#import-unit", Select)
-        fixed_unit = kind in ("portfolio", "balance")
+        fixed_unit = kind == "portfolio"
         if fixed_unit:
             unit.value = "ms"
         unit.disabled = fixed_unit
         note = self.query_one("#import-note", Static)
         path = self.query_one("#import-path", Input)
-        if kind == "balance":
-            note.update("导入同一账户的 USDC 账面余额基准（JSON / CSV）。数字时间戳必须为毫秒，或使用 ISO 时间；请勿填综合净值。")
-            path.placeholder = "例如 verified_balance.json 或 cash_anchors.csv"
-        elif kind == "portfolio":
+        if kind == "portfolio":
             note.update("导入官方净值历史（JSON / CSV）。数字时间戳必须为毫秒，或使用 ISO 时间；CSV 需提供 window。")
             path.placeholder = "例如 portfolio.json 或 portfolio_samples.csv"
         else:
@@ -241,7 +238,7 @@ class ImportScreen(ModalScreen[dict | None]):
             return
         kind = self.query_one("#import-kind", Select).value
         self.dismiss({"path": path, "kind": kind,
-                      "timestamp_unit": "ms" if kind in ("portfolio", "balance")
+                      "timestamp_unit": "ms" if kind == "portfolio"
                       else self.query_one("#import-unit", Select).value})
 
 
@@ -358,7 +355,7 @@ class HistoryApp(App):
                     yield Input(str(aws.get("region") or "us-east-1"), id="region")
                 yield Button("保存设置", id="save")
                 yield Button("读取 API + 生成报告", id="api")
-                yield Button("更新资产历史 + 四曲线", id="assets")
+                yield Button("更新快照 + 官方净值", id="assets")
                 yield Button("规划历史归档", id="plan")
                 yield Button("按预算下载归档", id="scan")
                 yield Button("用缓存生成报告", id="report")
@@ -373,8 +370,8 @@ class HistoryApp(App):
                 with Horizontal(id="metrics"):
                     yield Static("操作记录\n—", id="metric-ops", classes="metric")
                     yield Static("完整平仓\n—", id="metric-cycles", classes="metric")
-                    yield Static("已知盈亏 · USDC\n—", id="metric-pnl", classes="metric")
-                    yield Static("覆盖状态\n待读取", id="metric-coverage", classes="metric")
+                    yield Static("官方累计盈亏 · USD\n—", id="metric-pnl", classes="metric")
+                    yield Static("对账 / 历史\n待读取", id="metric-coverage", classes="metric")
                 with Horizontal(id="task-header"):
                     yield Label("● 就绪 · 输入钱包后读取，或按 d 查看模拟演示", id="task-label")
                     yield Label("", id="elapsed")
@@ -565,7 +562,7 @@ class HistoryApp(App):
 
     def reset_summary(self):
         for selector, title in (("#metric-ops", "操作记录"), ("#metric-cycles", "完整平仓"),
-                                ("#metric-pnl", "已知盈亏 · USDC"), ("#metric-coverage", "覆盖状态")):
+                                ("#metric-pnl", "官方累计盈亏 · USD"), ("#metric-coverage", "对账 / 历史")):
             self.main_query(selector, Static).update(Text(title + "\n待读取", style=MUTED))
 
     def apply_summary(self, result):
@@ -573,7 +570,8 @@ class HistoryApp(App):
         coverage = result.get("coverage", {})
         self.main_query("#metric-ops", Static).update(Text("操作记录\n" + f"{summary.get('operation_count', 0):,}", style=INK))
         self.main_query("#metric-cycles", Static).update(Text("完整平仓\n" + f"{summary.get('complete_closed_campaign_count', 0):,}", style=INK))
-        pnl = summary.get("observed_realized_pnl_usdc")
+        headline = result.get("model_summary") or {}
+        pnl = headline.get("official_all_time_pnl", summary.get("observed_realized_pnl_usdc"))
         pnl_tone = ORANGE
         try:
             numeric_pnl = float(pnl)
@@ -581,9 +579,11 @@ class HistoryApp(App):
                 pnl_tone = RED if numeric_pnl < 0 else MINT if numeric_pnl > 0 else MUTED
         except (ValueError, TypeError):
             pass
-        self.main_query("#metric-pnl", Static).update(Text("已知盈亏 · USDC\n" + plain(pnl, 22), style=pnl_tone))
+        self.main_query("#metric-pnl", Static).update(Text("官方累计盈亏 · USD\n" + plain(pnl, 22), style=pnl_tone))
         status = coverage.get("status") or result.get("status") or "覆盖待核验"
-        self.main_query("#metric-coverage", Static).update(Text("覆盖状态\n" + plain(status, 28), style=ORANGE))
+        if headline.get("reconciliation"):
+            status = f"{headline['reconciliation']} · {status}"
+        self.main_query("#metric-coverage", Static).update(Text("对账 / 历史\n" + plain(status, 28), style=ORANGE))
         if result.get("demo"):
             self.main_query("#top-status", Static).update(Text("模拟数据演示 · 非真实钱包", style=ORANGE))
         else:
@@ -716,7 +716,7 @@ class HistoryApp(App):
         self.start_task("从本地缓存生成报告", "generate_report")
 
     def action_assets(self):
-        self.start_task("更新官方资产历史与四曲线", "refresh_assets")
+        self.start_task("更新账户快照与官方净值", "refresh_assets")
 
     def action_demo(self):
         self.start_task("模拟数据演示", "run_demo", save=False)

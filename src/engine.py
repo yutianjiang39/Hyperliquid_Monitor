@@ -14,6 +14,7 @@ are reported separately and NEVER deducted a second time from ``fee``.
 """
 from __future__ import annotations
 
+from bisect import bisect_right
 from collections import Counter, defaultdict
 from decimal import Decimal, InvalidOperation, localcontext
 import hashlib
@@ -40,6 +41,8 @@ QUALITY_LABELS = {
     "unresolved_same_time_order": "同毫秒成交顺序存在歧义",
     "legacy_trade_missing_pnl_fee": "旧版逐笔成交归档不提供已实现盈亏和手续费",
     "import_missing_start_position": "导入记录缺少成交前仓位",
+    "liquidation": "强平成交",
+    "adl": "自动减仓 (ADL)",
 }
 
 
@@ -51,6 +54,20 @@ def _decimal(value):
         return number if number.is_finite() else None
     except (InvalidOperation, TypeError, ValueError):
         return None
+
+
+def position_decimal(value):
+    """startPosition with float serialization noise removed.
+
+    The API emits values such as 38272466.1000000015 (a double printed with
+    excess digits). Rounding to 15 significant digits restores the exact
+    position so fill chains and same-millisecond ordering link correctly.
+    """
+    number = _decimal(value)
+    if number is None or number == ZERO:
+        return number
+    rounded = number.quantize(Decimal(1).scaleb(number.adjusted() - 14))
+    return rounded.normalize() if rounded == rounded.to_integral_value() else rounded
 
 
 def _number(value):
@@ -104,7 +121,7 @@ def _market_type(fill, asset_meta):
     if isinstance(asset_meta, dict) and coin in asset_meta.get("spot_coins", []):
         return "spot"
     direction = str(fill.get("dir") or "").lower()
-    if direction in ("buy", "sell") or coin.startswith("@") or "/" in coin:
+    if direction in ("buy", "sell") or coin.startswith(("@", "#")) or "/" in coin:
         return "spot"
     return "perp"
 
@@ -185,30 +202,30 @@ def _order_same_millisecond(fills):
             # Later archive events cannot jump ahead merely because their
             # startPosition happens to match after a missing intermediate fill.
             available = [row for row in remaining if _source_order(row) is None or _source_order(row) == first_source]
-            choices = [row for row in available if expected is not None and _decimal(row.get("startPosition")) == expected]
+            choices = [row for row in available if expected is not None and position_decimal(row.get("startPosition")) == expected]
             if not choices:
                 if expected is None:
-                    choices = [row for row in available if _decimal(row.get("startPosition")) == ZERO]
+                    choices = [row for row in available if position_decimal(row.get("startPosition")) == ZERO]
                 if not choices:
                     ends = set()
                     for row in remaining:
-                        start, size = _decimal(row.get("startPosition")), _decimal(row.get("sz"))
+                        start, size = position_decimal(row.get("startPosition")), _decimal(row.get("sz"))
                         side = str(row.get("side") or "").upper()
                         if start is not None and size is not None and side in ("B", "A"):
                             ends.add(start + (size if side == "B" else -size))
-                    choices = [row for row in available if _decimal(row.get("startPosition")) not in ends]
+                    choices = [row for row in available if position_decimal(row.get("startPosition")) not in ends]
             choices = choices or available
             row = min(choices, key=_fill_sort_key)
-            same_start = [other for other in choices if _decimal(other.get("startPosition")) == _decimal(row.get("startPosition"))]
+            same_start = [other for other in choices if position_decimal(other.get("startPosition")) == position_decimal(row.get("startPosition"))]
             if len(same_start) > 1:
                 # Closed independent cycles can share zero; an intermediate
                 # nonzero branch cannot be unambiguously attached to a cycle.
-                if _decimal(row.get("startPosition")) not in (None, ZERO):
+                if position_decimal(row.get("startPosition")) not in (None, ZERO):
                     for other in same_start:
                         other["_same_time_ambiguous"] = True
             result.append(row)
             remaining.remove(row)
-            start, size = _decimal(row.get("startPosition")), _decimal(row.get("sz"))
+            start, size = position_decimal(row.get("startPosition")), _decimal(row.get("sz"))
             side = str(row.get("side") or "").upper()
             expected = start + (size if side == "B" else -size) if start is not None and size is not None and side in ("A", "B") else None
         expected_by_coin[coin] = expected
@@ -223,6 +240,11 @@ def _order_same_millisecond(fills):
             same_time.sort(key=_source_order)
         final_order.extend(same_time)
     return final_order
+
+
+def ordered_fills(fills):
+    """Deduplicated fills in reconstruction order (same-ms continuity aware)."""
+    return _deduplicate(fills)[0]
 
 
 def _deduplicate(fills):
@@ -268,7 +290,7 @@ def _deduplicate(fills):
     return _order_same_millisecond(unique.values()), input_count, conflicts
 
 
-def _base_operation(fill, asset_meta):
+def _base_operation(fill, asset_meta, wallet=None):
     coin = str(fill.get("coin") or "UNKNOWN")
     market_type = _market_type(fill, asset_meta)
     px, size = _decimal(fill.get("px")), _decimal(fill.get("sz"))
@@ -289,6 +311,14 @@ def _base_operation(fill, asset_meta):
     pnl_token = _pnl_token(coin, asset_meta, fill) if market_type == "perp" else None
     if market_type == "perp" and pnl_token is None:
         quality.append("unknown_pnl_token")
+    liquidation = fill.get("liquidation") if isinstance(fill.get("liquidation"), dict) else None
+    if liquidation and wallet and str(liquidation.get("liquidatedUser") or wallet).lower() != wallet:
+        liquidation = None  # counterparty to another account's liquidation
+    adl = "auto-deleveraging" in str(fill.get("dir") or "").lower()
+    if liquidation:
+        quality.append("liquidation")
+    if adl:
+        quality.append("adl")
     source = fill.get("_sources") or fill.get("_source") or fill.get("source") or "unknown"
     if isinstance(source, list):
         source = ", ".join(str(x) for x in source)
@@ -303,7 +333,7 @@ def _base_operation(fill, asset_meta):
         "direction_label": DIRECTION_LABELS["spot" if market_type == "spot" else "unknown"],
         "price": _number(px), "size": _number(size),
         "notional": _number(px * size) if px is not None and size is not None else None,
-        "start_position": _number(_decimal(fill.get("startPosition"))), "end_position": None,
+        "start_position": _number(position_decimal(fill.get("startPosition"))), "end_position": None,
         "closed_pnl": _number(pnl), "pnl_token": pnl_token,
         "fee": _number(fee), "fee_token": fee_token,
         "builder_fee": _number(_decimal(fill.get("builderFee"))),
@@ -311,6 +341,10 @@ def _base_operation(fill, asset_meta):
         "tid": str(fill["tid"]) if fill.get("tid") is not None else None,
         "hash": fill.get("hash"), "source": str(source), "quality": quality,
         "dir_raw": fill.get("dir"), "side": fill.get("side"),
+        "liquidation": bool(liquidation), "liquidation_mark_px": (liquidation or {}).get("markPx"),
+        "liquidation_method": (liquidation or {}).get("method"), "adl": adl,
+        "maker": None if fill.get("crossed") is None else not fill.get("crossed"),
+        "twap": fill.get("twapId") is not None,
     }
 
 
@@ -342,6 +376,7 @@ def _new_campaign(coin, direction, op, starting_position, observed_open, sequenc
         "_fee_missing": False, "_entry_missing": not observed_open,
         "_exit_missing": False, "_fill_ids": set(), "_order_ids": set(),
         "_quality": quality, "_observed_open": observed_open, "_continuous": True,
+        "_liquidated": False, "_adl": False, "_maker_notional": ZERO, "_taker_notional": ZERO,
     }
 
 
@@ -374,6 +409,10 @@ def _consume_campaign(campaign, operation):
     builder_fee = _decimal(operation["builder_fee"])
     if builder_fee is not None:
         campaign["_builder_fees"][fee_token or "UNKNOWN"] += builder_fee
+    campaign["_liquidated"] |= bool(operation.get("liquidation"))
+    campaign["_adl"] |= bool(operation.get("adl"))
+    if notional is not None and operation.get("maker") is not None:
+        campaign["_maker_notional" if operation["maker"] else "_taker_notional"] += notional
     campaign["_fill_ids"].add(operation["fill_id"])
     if operation["oid"] is not None:
         campaign["_order_ids"].add(operation["oid"])
@@ -419,6 +458,11 @@ def _finalize_campaign(campaign):
         "pnl_complete": pnl_known, "fees_complete": fees_known,
         "eligible_for_win_rate": complete and net is not None,
         "quality": sorted(campaign["_quality"]), "end_position": _number(campaign["_position"]),
+        "liquidated": campaign["_liquidated"], "adl": campaign["_adl"],
+        "ended_by": ("liquidation" if campaign["_liquidated"] else "adl" if campaign["_adl"] else "trade")
+                    if campaign["status"] == "closed" else None,
+        "maker_notional": _number(campaign["_maker_notional"]),
+        "taker_notional": _number(campaign["_taker_notional"]),
     })
     if result["open_time"] is not None and result["close_time"] is not None:
         result["duration_ms"] = result["close_time"] - result["open_time"]
@@ -456,20 +500,63 @@ def _funding_summary(funding, asset_meta):
             "funding_included_in_campaign_pnl": False}
 
 
-def analyze_fills(fills, funding=None, asset_meta=None):
+def _attach_funding(campaigns, funding):
+    """Credit each funding payment to the campaign holding that coin at that time.
+
+    Open time inclusive, close time exclusive. Payments outside every observed
+    campaign are returned per token instead of being spread around.
+    """
+    by_coin = defaultdict(list)
+    for campaign in campaigns:
+        campaign["_funding"] = ZERO
+        start = campaign.get("open_time") or campaign.get("first_observed_time")
+        by_coin[campaign["coin"]].append((start, campaign.get("close_time"), campaign))
+    starts = {}
+    for coin, spans in by_coin.items():
+        spans.sort(key=lambda x: x[0] or 0)
+        starts[coin] = [x[0] or 0 for x in spans]
+    unattributed = defaultdict(lambda: ZERO)
+    for event in funding or []:
+        delta = event.get("delta", event) if isinstance(event, dict) else {}
+        amount = _decimal(delta.get("usdc"))
+        if amount is None:
+            continue
+        coin, t = str(delta.get("coin") or ""), _timestamp(event.get("time"))
+        target = None
+        if t is not None and coin in by_coin:
+            index = bisect_right(starts[coin], t) - 1
+            if index >= 0:
+                start, end, campaign = by_coin[coin][index]
+                if start is not None and (end is None or t < end):
+                    target = campaign
+        if target is None:
+            unattributed[str(event.get("pnl_token") or "USDC")] += amount
+        else:
+            target["_funding"] += amount
+    for campaign in campaigns:
+        value = campaign.pop("_funding")
+        campaign["funding"] = _number(value)
+        net = _decimal(campaign.get("net_pnl"))
+        campaign["net_pnl_with_funding"] = _number(net + value) if net is not None else None
+    return unattributed
+
+
+def analyze_fills(fills, funding=None, asset_meta=None, wallet=None):
     """Return operations, campaigns, summary and warnings as JSON-safe objects.
 
     ``win_rate`` is a percentage, not a fraction. Its denominator includes
     complete closed campaigns with known net PNL, including break-even ones.
     API ``closedPnl`` excludes trading fees; this engine subtracts ``fee`` once
     only when its currency equals the campaign PNL currency. Funding is separate.
+    With ``wallet`` given, a fill is a liquidation only when that wallet was the
+    liquidated user (not the counterparty absorbing someone else's liquidation).
     """
     with localcontext() as ctx:
         ctx.prec = 80
-        return _analyze(fills, funding, asset_meta)
+        return _analyze(fills, funding, asset_meta, (wallet or "").lower() or None)
 
 
-def _analyze(fills, funding, asset_meta):
+def _analyze(fills, funding, asset_meta, wallet=None):
     ordered, input_count, duplicate_conflicts = _deduplicate(fills)
     operations = []
     finalized = []
@@ -494,7 +581,7 @@ def _analyze(fills, funding, asset_meta):
         finalized.append(_finalize_campaign(campaign))
 
     for fill in ordered:
-        operation = _base_operation(fill, asset_meta)
+        operation = _base_operation(fill, asset_meta, wallet)
         coin = operation["coin"]
         side = str(fill.get("side") or "").upper()
         if side in ("BUY", "BID"):
@@ -502,7 +589,7 @@ def _analyze(fills, funding, asset_meta):
         elif side in ("SELL", "ASK", "S"):
             side = "A"
         size, px = _decimal(fill.get("sz")), _decimal(fill.get("px"))
-        start = _decimal(fill.get("startPosition"))
+        start = position_decimal(fill.get("startPosition"))
         pnl, fee = _decimal(fill.get("closedPnl")), _decimal(fill.get("fee"))
         fee_token = operation["fee_token"]
         pnl_token = operation["pnl_token"]
@@ -605,6 +692,7 @@ def _analyze(fills, funding, asset_meta):
                 finish(coin)
     for coin in list(active):
         finish(coin)
+    unattributed_funding = _attach_funding(finalized, funding)
     # Most recent campaigns first, while operations remain chronological so a
     # report/export can choose either order without changing reconstruction.
     finalized.sort(key=lambda x: (x["last_observed_time"] or 0, x["coin"], x["id"]), reverse=True)
@@ -631,6 +719,8 @@ def _analyze(fills, funding, asset_meta):
         "evaluated_campaign_count": len(eligible), "winning_campaign_count": wins,
         "losing_campaign_count": losses, "breakeven_campaign_count": flats,
         "win_rate": _number(Decimal(wins) * 100 / Decimal(len(eligible))) if eligible else None,
+        "win_rate_strict": _number(Decimal(wins) * 100 / Decimal(wins + losses)) if wins + losses else None,
+        "unattributed_funding_by_token": {k: _number(v) for k, v in sorted(unattributed_funding.items())},
         "win_rate_basis": "complete_closed_campaigns_with_known_net_pnl_including_breakeven",
         "realized_pnl_by_token": complete_pnl_by_token,
         "observed_realized_pnl_by_token": {k: _number(v) for k, v in sorted(summary_pnl.items())},

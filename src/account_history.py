@@ -236,6 +236,9 @@ def collect_account_history(store, client, *, log=print, cancel_check=None, now_
         store.set_meta("portfolio_history", history)
         store.set_meta("portfolio_provenance", provenance)
         store.set_meta("portfolio_latest_raw", response)
+        # Each fetch is kept intact: day/week/month pnlHistory restarts at zero
+        # at the window start, so it may only be differenced within one fetch.
+        store.put("portfolio_fetch", {"time": stamp, "windows": incoming}, "api:portfolio")
         meta["last_success_at_ms"] = stamp
         meta["source"] = "api:portfolio"
         if not any(_counts(incoming).values()):
@@ -355,3 +358,90 @@ def import_portfolio_history(store, path, *, log=print, cancel_check=None, now_m
     for warning in meta["warnings"]:
         log(warning)
     return meta
+
+
+# ---------------------------------------------------------------------------
+# Official series: stitched equity and absolute cumulative PnL (ground truth)
+# ---------------------------------------------------------------------------
+FINE_TO_COARSE = {"total": ("day", "week", "month", "allTime"),
+                  "perp": ("perpDay", "perpWeek", "perpMonth", "perpAllTime")}
+
+
+def _fetch_points(windows, names):
+    """Absolute (t, equity, cum_pnl, window) points for one fetch.
+
+    All windows of one fetch end at the same latest sample, so relative window
+    PnL is anchored to the all-time cumulative value at that shared end point.
+    Finer windows replace coarser points inside their own time span.
+    """
+    by_name = {name: body for name, body in windows if isinstance(body, dict)}
+    coarse = by_name.get(names[-1])
+    if not coarse or not coarse.get("pnlHistory"):
+        return []
+    anchor_pnl = Decimal(str(coarse["pnlHistory"][-1][1]))
+    points, cutoff = {}, None
+    for name in names:  # finest first
+        body = by_name.get(name)
+        if not body:
+            continue
+        equity = {int(t): Decimal(str(v)) for t, v in body.get("accountValueHistory", [])}
+        pnl = [(int(t), Decimal(str(v))) for t, v in body.get("pnlHistory", [])]
+        if not pnl:
+            continue
+        offset = anchor_pnl - pnl[-1][1]
+        first = pnl[0][0]
+        for t, v in pnl:
+            if cutoff is not None and t >= cutoff:
+                continue
+            if t in points:
+                continue
+            points[t] = {"time": t, "equity": equity.get(t), "cum_pnl": v + offset, "window": name}
+        cutoff = first if cutoff is None else min(cutoff, first)
+    return [points[t] for t in sorted(points)]
+
+
+def official_series(store, scope="total"):
+    """Merge all cached portfolio fetches into one absolute series.
+
+    Later fetches win on overlapping timestamps; earlier fetches keep the finer
+    historical samples that the API has since coarsened.
+    """
+    names = FINE_TO_COARSE[scope]
+    merged = {}
+    for row in store.rows("portfolio_fetch"):
+        for point in _fetch_points(row.get("windows") or [], names):
+            point["fetched_at_ms"] = row["time"]
+            merged[point["time"]] = point
+    if not merged:
+        # Legacy cache: only the merged allTime window is trustworthy for PnL.
+        legacy = store.get_meta("portfolio_history", []) or []
+        legacy = [[n, b] for n, b in legacy if n == names[-1]]
+        for point in _fetch_points(legacy, names[-1:]):
+            point["fetched_at_ms"] = None
+            merged[point["time"]] = point
+    return [merged[t] for t in sorted(merged)]
+
+
+def latest_window_stats(store):
+    """Official PnL and volume per window from the newest fetch."""
+    rows = list(store.rows("portfolio_fetch"))
+    if not rows:
+        history = store.get_meta("portfolio_history", []) or []
+        windows = history
+    else:
+        windows = rows[-1].get("windows") or []
+    out = {}
+    for name, body in windows:
+        pnl = body.get("pnlHistory") or []
+        equity = body.get("accountValueHistory") or []
+        out[name] = {
+            "pnl": str(Decimal(str(pnl[-1][1])) - Decimal(str(pnl[0][1]))) if len(pnl) >= 1 else None,
+            "cum_pnl_end": str(pnl[-1][1]) if pnl else None,
+            "equity_end": str(equity[-1][1]) if equity else None,
+            "equity_start": str(equity[0][1]) if equity else None,
+            "start_ms": int(equity[0][0]) if equity else None,
+            "end_ms": int(equity[-1][0]) if equity else None,
+            "vlm": body.get("vlm"),
+            "samples": len(equity),
+        }
+    return out

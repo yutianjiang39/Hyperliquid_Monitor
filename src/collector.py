@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-VERSION = "2.3.0-local"
+VERSION = "3.1.0-local"
 INFO_URL = "https://api.hyperliquid.xyz/info"
 S3_BUCKET = "hl-mainnet-node-data"
 S3_PREFIXES = ("node_fills_by_block", "node_fills", "node_trades", "misc_events_by_block")
@@ -134,6 +134,9 @@ def source_rank(source):
         return 35
     if source.startswith("import:"):
         return 30
+    if source.startswith("plugin:"):
+        # Third-party history fills gaps but never overrides official records.
+        return 20
     return 10
 
 
@@ -285,9 +288,11 @@ class InfoClient:
                     raise RuntimeError("Info API 返回错误: " + str(out)[:300])
                 if isinstance(out, str) and body.get("type") != "userAbstraction":
                     raise RuntimeError("Info API 返回错误字符串: " + out[:300])
-                # Aim below the documented 1200 weighted requests per minute.
+                # Aim below the documented 1200 weighted requests per minute;
+                # large responses add weight per 20 items (per 60 for candles).
                 n = len(out) if isinstance(out, list) else 0
-                self.next_request = time.monotonic() + (20 + math.ceil(n / 20)) * 60 / 1000
+                per = 60 if body.get("type") == "candleSnapshot" else 20
+                self.next_request = time.monotonic() + (20 + math.ceil(n / per)) * 60 / 1000
                 return out
             except (requests.Timeout, requests.ConnectionError):
                 if attempt == self.retries - 1:
@@ -334,7 +339,8 @@ def api_rows(client, endpoint, wallet, start, end, cap, on_page=None, max_pages=
             on_page(rows)
         if hi == cursor:
             if len(rows) >= cap:
-                stats["gaps"].append({"time": cursor, "reason": "同一毫秒响应饱和；API 无 offset，需归档核对", "rows": len(rows)})
+                stats["gaps"].append({"time": cursor, "start_ms": cursor, "end_ms": cursor,
+                                      "reason": "同一毫秒响应饱和；API 无 offset，需归档核对", "rows": len(rows)})
             cursor += 1  # Only after an inclusive request has isolated this boundary.
         else:
             cursor = hi
@@ -377,6 +383,11 @@ def collect_api(store, start=0, end=None, *, client=None, incremental=True, log=
             # join disjoint historical requests and silently skip the gap later.
             stats["requested_start_ms"] = start
             stats["incremental"] = query_start > start
+            # Earliest record the API has ever shown us for this stream. Retention
+            # limits (e.g. 10k recent fills) make this later than the account start.
+            earliest = [v for v in (old.get("available_from_ms"), old.get("first_ms"), stats.get("first_ms")) if v is not None]
+            stats["available_from_ms"] = min(earliest) if earliest else None
+            stats["received_from_start"] = None if stats["incremental"] else stats["received_rows"]
             stats["status"] = "api_visible_exhausted" if stats["exhausted"] else "partial"
             store.set_meta("api:" + endpoint, stats)
         except Exception as exc:
@@ -423,7 +434,7 @@ def fetch_asset_meta(client, fills, store=None, log=print):
     except Exception as exc:
         tokens = {0: "USDC"}
         errors.append("spotMeta: " + str(exc)[:200])
-    dexes = sorted({c.split(":", 1)[0] if ":" in c else "" for c in coins if not c.startswith("@") and "/" not in c})
+    dexes = sorted({c.split(":", 1)[0] if ":" in c else "" for c in coins if not c.startswith(("@", "#")) and "/" not in c})
     for dex in dexes:
         try:
             payload = {"type": "metaAndAssetCtxs"}
@@ -598,18 +609,27 @@ def s3_client(region="us-east-1"):
     return boto3.Session(region_name=region).client("s3", config=Config(retries={"max_attempts": 5, "mode": "standard"}, connect_timeout=15, read_timeout=90))
 
 
-def inventory_archives(store, start, end, *, client=None, prefixes=S3_PREFIXES, log=print, cancel_check=None):
-    """List actual objects first; AWS LIST itself can incur requester-pays charges."""
+def inventory_archives(store, start, end, *, client=None, prefixes=S3_PREFIXES, log=print, cancel_check=None,
+                       hours=None):
+    """List actual objects first; AWS LIST itself can incur requester-pays charges.
+
+    ``hours`` (a set of hour-start ms) restricts the listing to those UTC days
+    and keeps only objects of those hours, so a gap backfill lists and
+    downloads a few files instead of the whole archive.
+    """
     client = client or s3_client()
     objects, errors, unknown = [], [], []
     # All-history mode uses zero and lists from each prefix's actual beginning.
     start_date = datetime.fromtimestamp(start / 1000, timezone.utc).strftime("%Y%m%d") if start else "00000000"
-    for prefix in prefixes:
+    days = sorted({datetime.fromtimestamp(h / 1000, timezone.utc).strftime("%Y%m%d") for h in hours}) if hours else None
+    listings = [(prefix, prefix + "/hourly/" + day + "/" if days else prefix + "/")
+                for prefix in prefixes for day in (days or [None])]
+    for prefix, list_prefix in listings:
         if cancel_check:
             cancel_check()
-        log(f"列出归档 {prefix} …")
-        args = {"Bucket": S3_BUCKET, "Prefix": prefix + "/", "RequestPayer": "requester", "MaxKeys": 1000}
-        if start:
+        log(f"列出归档 {list_prefix} …")
+        args = {"Bucket": S3_BUCKET, "Prefix": list_prefix, "RequestPayer": "requester", "MaxKeys": 1000}
+        if start and not days:
             args["StartAfter"] = f"{prefix}/hourly/{start_date}/"
         try:
             while True:
@@ -624,7 +644,7 @@ def inventory_archives(store, start, end, *, client=None, prefixes=S3_PREFIXES, 
                     if hour is None:
                         unknown.append({"prefix": prefix, "key": key, "reason": "未识别对象时间路径"})
                         continue
-                    if hour + HOUR_MS <= start or hour > end:
+                    if hour + HOUR_MS <= start or hour > end or (hours is not None and hour not in hours):
                         continue
                     obj = {"bucket": S3_BUCKET, "key": key, "etag": item.get("ETag", ""), "size": int(item["Size"]),
                            "hour_ms": hour, "prefix": prefix}
@@ -649,6 +669,32 @@ def inventory_archives(store, start, end, *, client=None, prefixes=S3_PREFIXES, 
     store.commit()
     log(f"清单：{len(objects):,} 个对象；待扫描压缩体积 {result['pending_bytes'] / 2**30:,.2f} GiB。")
     return result
+
+
+S3_USD_PER_GB = 0.09  # requester-pays transfer out to the internet, before request fees
+
+
+def one_per_hour(inventory):
+    """Keep one fills object per hour, preferring the order of ``S3_PREFIXES``.
+
+    node_fills_by_block and node_fills carry the same fills; reading both doubles the bill.
+    """
+    best = {}
+    for obj in inventory["objects"]:
+        rank = S3_PREFIXES.index(obj["prefix"]) if obj["prefix"] in S3_PREFIXES else 9
+        if obj["hour_ms"] not in best or rank < best[obj["hour_ms"]][0]:
+            best[obj["hour_ms"]] = (rank, obj)
+    objects = [obj for _, obj in sorted(best.values(), key=lambda x: x[1]["hour_ms"])]
+    return dict(inventory, objects=objects, object_count=len(objects),
+                compressed_bytes=sum(o["size"] for o in objects),
+                pending_bytes=sum(o["size"] for o in objects if o["status"] != "done"))
+
+
+def estimate_cost(inventory, usd_per_gb=S3_USD_PER_GB):
+    """Transfer cost of the objects still pending in an inventory."""
+    pending = sum(o["size"] for o in inventory["objects"] if o.get("status") != "done")
+    return {"pending_bytes": pending, "objects": sum(1 for o in inventory["objects"] if o.get("status") != "done"),
+            "usd": pending / 1e9 * usd_per_gb, "usd_per_gb": usd_per_gb}
 
 
 def ingest_archive_stream(store, binary_stream, source, *, start=0, end=2**63 - 1, cancel_check=None):

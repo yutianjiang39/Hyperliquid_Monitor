@@ -27,19 +27,31 @@ ROOT = Path(__file__).resolve().parent
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 from collector import (HistoryStore, InfoClient, S3_BUCKET, S3_PREFIXES, HOUR_MS,
-                       wallet_address, date_ms, object_hour, collect_api, fetch_asset_meta,
+                       wallet_address, date_ms, object_hour, collect_api,
                        inventory_archives, scan_archives, import_history_file)
 from pipeline import generate_report as build_history_report
 from account_history import collect_account_history, import_portfolio_history
-from balance_snapshot import collect_balance_anchor, import_balance_anchors
+from sources.market_data import fetch_market_meta
+from sources.snapshots import collect_snapshot
+from sources.account_extras import collect_extras
+from sources.leaderboard import fetch_leaderboard_row
+from sources import DEFAULT_PLUGIN_CONFIG, active_plugins, plugin_status
+from analysis import analyze_wallet
+from sources.backfill import run_backfill
 
-VERSION = "2.3.2"
+VERSION = "3.1.0"
 DEFAULT_CONFIG = {
     "version": VERSION, "wallet": "", "start_date_utc": "", "end_date_utc": "",
-    "data_dir": "data", "output_dir": "reports", "chunk_size": 1000,
-    "incremental_api": True,
+    "data_dir": "data", "output_dir": "reports", "chunk_size": 5000,
+    "incremental_api": True, "leaderboard": False, "include_subaccounts": False, "plugins": DEFAULT_PLUGIN_CONFIG,
     "aws": {"profile": "", "region": "us-east-1", "max_download_gib": 10.0, "max_objects": 0},
+    "mae": False,
+    # Paid requester-pays archives; used only when enabled AND AWS credentials resolve.
+    "backfill": {"enabled": False, "sources": ["reservoir", "official_s3"], "max_cost_usd": 5.0, "mode": "gaps",
+                 "reservoir_bucket": "hydromancer-reservoir", "reservoir_region": "ap-northeast-1",
+                 "reservoir_prefix": ""},
 }
+BACKFILL_SOURCES = ("official_s3", "reservoir")
 DATASETS = ("operations", "campaigns", "ledger", "funding", "coverage")
 
 
@@ -82,7 +94,30 @@ def validate_config(value):
     if unknown:
         raise ValueError("未识别的配置字段：" + ", ".join(sorted(unknown)) + "。AWS 凭证请放标准环境变量或 profile。")
     out = copy.deepcopy(DEFAULT_CONFIG)
-    out.update({k: v for k, v in value.items() if k != "aws"})
+    out.update({k: v for k, v in value.items() if k not in ("aws", "plugins", "backfill")})
+    backfill = value.get("backfill", {})
+    if not isinstance(backfill, dict) or set(backfill) - set(DEFAULT_CONFIG["backfill"]):
+        raise ValueError("backfill 只接受 " + "、".join(DEFAULT_CONFIG["backfill"]) + "；AWS 密钥请放 profile 或环境变量。")
+    out["backfill"].update(backfill)
+    bf = out["backfill"]
+    if not isinstance(bf["enabled"], bool):
+        raise ValueError("backfill.enabled 须为 true/false。")
+    if not isinstance(bf["sources"], list) or not set(bf["sources"]) <= set(BACKFILL_SOURCES):
+        raise ValueError("backfill.sources 只能包含 " + "、".join(BACKFILL_SOURCES) + "。")
+    cost = bf["max_cost_usd"]
+    if isinstance(cost, bool) or not isinstance(cost, (int, float)) or not math.isfinite(cost) or cost < 0:
+        raise ValueError("backfill.max_cost_usd 须为非负数（美元）。")
+    if bf["mode"] not in ("gaps", "full"):
+        raise ValueError("backfill.mode 只能是 gaps 或 full。")
+    for k in ("reservoir_bucket", "reservoir_region", "reservoir_prefix"):
+        if not isinstance(bf[k], str):
+            raise ValueError(f"backfill.{k} 必须为字符串。")
+    plugins = value.get("plugins", {})
+    if not isinstance(plugins, dict) or set(plugins) - set(DEFAULT_CONFIG["plugins"]) or any(
+            not isinstance(v, dict) or set(v) - set(DEFAULT_CONFIG["plugins"][k]) for k, v in plugins.items()):
+        raise ValueError("plugins 只接受 hydromancer{enabled,url} 与 dune{enabled,query_id}；API key 请放环境变量。")
+    for name, settings in plugins.items():
+        out["plugins"][name].update(settings)
     aws = value.get("aws", {})
     if not isinstance(aws, dict) or set(aws) - set(DEFAULT_CONFIG["aws"]):
         raise ValueError("aws 只接受 profile、region、max_download_gib、max_objects；不要在配置中写入密钥。")
@@ -101,10 +136,11 @@ def validate_config(value):
     if not out["data_dir"] or not out["output_dir"]:
         raise ValueError("缓存与报告目录不可为空。")
     n = out["chunk_size"]
-    if isinstance(n, bool) or not isinstance(n, int) or not 100 <= n <= 2000:
-        raise ValueError("chunk_size 须为 100–2000 的整数。")
-    if not isinstance(out["incremental_api"], bool):
-        raise ValueError("incremental_api 须为 true/false。")
+    if isinstance(n, bool) or not isinstance(n, int) or not 100 <= n <= 20000:
+        raise ValueError("chunk_size 须为 100–20000 的整数。")
+    for flag in ("incremental_api", "leaderboard", "include_subaccounts", "mae"):
+        if not isinstance(out[flag], bool):
+            raise ValueError(flag + " 须为 true/false。")
     for k in ("profile", "region"):
         if out["aws"][k] is None and k == "profile":
             out["aws"][k] = ""
@@ -307,6 +343,11 @@ class Runtime:
         self._view_lock = threading.Lock()
         self.last_result = None
         self.last_plan = None
+        # Per-invocation CLI switches; they never persist into config.json.
+        self.plugin_override = None
+        self.leaderboard_override = False
+        self.subaccounts_override = False
+        self.mae_override = False
         self._view_path = None
         self._reload_state()
 
@@ -494,7 +535,7 @@ class Runtime:
             db.close()
             tmp.unlink(missing_ok=True)
 
-    def _build(self, job, *, inventory=None, demo=False):
+    def _build(self, job, *, inventory=None, demo=False, client=None):
         job.check()
         folder = ("demo_" if demo else job.wallet[2:10] + "_") + datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S") + "_" + uuid.uuid4().hex[:5]
         output = self._path(self.config["output_dir"]) / folder
@@ -506,19 +547,12 @@ class Runtime:
         interrupted = job.store.get_meta("local_interruption")
         if interrupted:
             warnings.append("本地曾有中断任务；已完成内容保留，请结合 API/归档状态判断是否已补齐。")
-        result = build_history_report(job.store, output, job.start, job.end, inventory=inventory, client=None,
-            chunk_size=self.config["chunk_size"], log=job.log, cancel_check=job.check,
+        result = build_history_report(job.store, output, job.start, job.end, inventory=inventory, client=client,
+            title="模拟数据演示 · Hyperliquid 钱包分析" if demo else None,
+            chunk_size=self.config["chunk_size"], log=job.log, cancel_check=job.check, mae=self._mae(),
             analysis_sink=lambda a, l, f, c: self._write_views(job.directory, a, l, f, c, job.check),
             coverage_extra={"runtime_version": VERSION, "last_interruption": interrupted,
                             "last_failure": job.store.get_meta("local_last_failure"), "warnings": warnings, "demo": demo})
-        if demo:
-            html = Path(result["html"])
-            content = html.read_text(encoding="utf-8").replace("<h1>钱包全历史分析</h1>", "<h1>模拟数据演示 · 钱包历史分析</h1>")
-            content = content.replace("<title>Hyperliquid · 钱包历史报告</title>", "<title>模拟数据演示 · Hyperliquid</title>")
-            html.write_text(content, encoding="utf-8")
-            # Keep the downloadable ZIP identical to the visible demo report.
-            from report import archive_report
-            archive_report(output)
         result.update(wallet=job.wallet, generated_at_ms=self.clock(), status=job.status, demo=demo,
                       views_db=str(job.directory / "views.sqlite"))
         # Preserve convenient absolute paths during this run and portable paths
@@ -541,13 +575,8 @@ class Runtime:
                 job.status = "partial" if partial else "completed"
                 if partial:
                     job.log("部分 API 数据未完整返回，报告将保留错误与覆盖提示。")
-                fetch_asset_meta(client, job.store.rows("fills", job.start, job.end), store=job.store, log=job.log)
-                account = collect_account_history(job.store, client, log=job.log,
-                    cancel_check=job.check, now_ms=self.clock())
-                if account.get("status") != "ok":
-                    job.status = "partial"
-                self._refresh_cash_anchor(job, client)
-                return self._build(job, inventory=self._plan(job.wallet, job.start, job.end))
+                self._refresh_live(job, client)
+                return self._build(job, inventory=self._plan(job.wallet, job.start, job.end), client=client)
             finally:
                 if getattr(client, "session", None) is not None:
                     client.session.close()
@@ -593,54 +622,141 @@ class Runtime:
 
     def generate_report(self, log=print, cancel=None):
         with self._job("report", log, cancel) as job:
-            return self._build(job, inventory=self._plan(job.wallet, job.start, job.end))
+            # Wallet data stays cache-only; MAE/MFE may still download public candles.
+            client = self._info(cancel) if self._mae() else None
+            try:
+                return self._build(job, inventory=self._plan(job.wallet, job.start, job.end), client=client)
+            finally:
+                if getattr(client, "session", None) is not None:
+                    client.session.close()
 
-    def _refresh_cash_anchor(self, job, client):
-        """Fetch a labelled cash anchor, then close the ledger-to-anchor gap.
+    def _mae(self):
+        return bool(self.config["mae"] or self.mae_override)
 
-        The reporting date range stays unchanged. Records beyond a historical
-        report end are cached solely so backward accounting has all subsequent
-        cash flows. No AWS requests are made here.
+    def _run_plugins(self, job, only=None):
+        """Backfill streams older than the official API window from keyed plugins."""
+        for plugin in active_plugins(self.config, only):
+            for kind in sorted(plugin.capabilities):
+                first = next(iter(job.store.rows(kind)), None)
+                stop = first["time"] - 1 if first else job.end
+                if stop <= job.start:
+                    continue
+                job.log(f"插件 {plugin.name}：补抓 {kind}（官方最早记录之前）… {plugin.cost_hint}")
+                try:
+                    plugin.fetch(job.store, kind, job.start, stop, log=job.log, cancel_check=job.check)
+                except Exception as exc:
+                    job.status = "partial"
+                    job.log(f"插件 {plugin.name} {kind} 失败：" + safe_message(exc))
+
+    def _collect_subaccounts(self, job, client):
+        """Collect and analyze each sub-account in its own cache; summarize on the master.
+
+        Sub-accounts are separate HyperCore accounts with their own official
+        portfolio, so each is reconciled on its own and only summed for display.
         """
-        anchor = collect_balance_anchor(job.store, client, log=job.log,
-            cancel_check=job.check, now_ms=self.clock)
-        if not anchor.get("latest_fetch_succeeded"):
-            job.status = "partial"
-            job.store.commit()
-            return anchor
-        stop = max(int(anchor.get("latest_anchor_time") or 0), self.clock(), job.end)
-        job.log("增量补齐成交、资金费和转账至余额基准之后，避免用新余额倒推旧流水 …")
-        results = collect_api(job.store, job.start, stop, client=client,
-            incremental=True, log=job.log, cancel_check=job.check)
-        if any(r.get("status") != "api_visible_exhausted" or r.get("gaps") for r in results):
-            job.status = "partial"
-        # A newly observed spot pair or builder market needs its actual quote /
-        # collateral token before it can be assigned a USDC cash contribution.
-        fetch_asset_meta(client, job.store.rows("fills", job.start, stop), store=job.store, log=job.log)
+        snapshot = job.store.get_meta("latest_snapshot") or {}
+        rows = []
+        for sub in snapshot.get("sub_accounts", []):
+            address = sub.get("address")
+            if not address:
+                continue
+            job.log(f"子账户 {sub.get('name') or ''} {address}：抓取与分析 …")
+            directory = self._wallet_dir(address)
+            directory.mkdir(parents=True, exist_ok=True)
+            store = HistoryStore(directory / "wallet_history.sqlite", address)
+            try:
+                sub_job = Job(store, address, directory, job.start, job.end, job.log, job.check)
+                results = collect_api(store, job.start, job.end, client=client,
+                    incremental=self.config["incremental_api"], log=job.log, cancel_check=job.check)
+                if any(r.get("status") != "api_visible_exhausted" or r.get("gaps") for r in results):
+                    job.status = "partial"
+                self._refresh_live(sub_job, client, secondary=False)
+                model, _ = analyze_wallet(store, client, log=job.log, cancel_check=job.check)
+                rec, trunc = model["quality"]["reconciliation"], model["quality"]["truncation"]
+                rows.append({"address": address, "name": sub.get("name"),
+                             "official_pnl": (model["official"]["windows"].get("allTime") or {}).get("pnl"),
+                             "equity": model["current"].get("equity"), "twr": model["performance"].get("twr"),
+                             "max_drawdown": model["risk"].get("max_drawdown"),
+                             "volume": (model["official"]["windows"].get("allTime") or {}).get("vlm"),
+                             "fills": model["engine_summary"].get("unique_fill_count"),
+                             "reconciliation": rec.get("status"), "residual_pct": rec.get("residual_pct"),
+                             "history": trunc.get("status")})
+                if sub_job.status != "completed":
+                    job.status = "partial"
+            except Cancelled:
+                raise
+            except Exception as exc:
+                job.status = "partial"
+                job.log(f"子账户 {address} 失败：" + safe_message(exc))
+                rows.append({"address": address, "name": sub.get("name"), "error": safe_message(exc)[:200]})
+            finally:
+                store.close()
+        job.store.set_meta("sub_account_summary", rows)
         job.store.commit()
-        return anchor
+        return rows
+
+    def _refresh_live(self, job, client, secondary=True):
+        """Fetch the official truth layers: market meta, portfolio, snapshot, extras.
+
+        Fills/funding/ledger are bridged up to the snapshot time so the position
+        chain ends where the snapshot starts, even for a historical report end.
+        No AWS requests are made here.
+        """
+        fetch_market_meta(client, job.store, log=job.log)
+        account = collect_account_history(job.store, client, log=job.log,
+            cancel_check=job.check, now_ms=self.clock())
+        if account.get("status") != "ok":
+            job.status = "partial"
+        snapshot = collect_snapshot(job.store, client, spot_prices=job.store.get_meta("spot_prices", {}),
+            log=job.log, cancel_check=job.check, now_ms=self.clock())
+        if snapshot.get("errors"):
+            job.status = "partial"
+        if snapshot["time"] > job.end:
+            job.log("增量补齐成交、资金费和转账至快照时刻，使仓位链与快照衔接 …")
+            results = collect_api(job.store, job.start, snapshot["time"], client=client,
+                incremental=True, log=job.log, cancel_check=job.check)
+            if any(r.get("status") != "api_visible_exhausted" or r.get("gaps") for r in results):
+                job.status = "partial"
+        collect_extras(job.store, client, log=job.log, cancel_check=job.check)
+        if not secondary:
+            job.store.commit()
+            return snapshot
+        self._run_plugins(job, self.plugin_override)
+        try:
+            run_backfill(job.store, self.config, log=job.log, cancel_check=job.check)
+        except Cancelled:
+            raise
+        except Exception as exc:
+            job.status = "partial"
+            job.log("付费补数失败（已缓存内容保留）：" + safe_message(exc))
+        if self.config["include_subaccounts"] or self.subaccounts_override:
+            self._collect_subaccounts(job, client)
+        if self.config["leaderboard"] or self.leaderboard_override:
+            try:
+                fetch_leaderboard_row(job.store, log=job.log)
+            except Exception as exc:
+                job.log("排行榜核对失败（可选数据，不影响报告）：" + safe_message(exc))
+        job.store.commit()
+        return snapshot
 
     def refresh_assets(self, log=print, cancel=None):
-        """Refresh equity and cash anchors, and incrementally bridge their flows."""
+        """Refresh the official portfolio and snapshot, and incrementally bridge flows."""
         with self._job("assets", log, cancel) as job:
             client = self._info(cancel)
             try:
-                account = collect_account_history(job.store, client, log=job.log,
-                    cancel_check=job.check, now_ms=self.clock())
-                job.status = "completed" if account.get("status") == "ok" else "partial"
-                self._refresh_cash_anchor(job, client)
-                return self._build(job, inventory=self._plan(job.wallet, job.start, job.end))
+                self._refresh_live(job, client)
+                return self._build(job, inventory=self._plan(job.wallet, job.start, job.end), client=client)
             finally:
                 if getattr(client, "session", None) is not None:
                     client.session.close()
 
     def import_file(self, path, kind="fills", field_map=None, timestamp_unit="ms", log=print, cancel=None):
-        if kind not in ("fills", "ledger", "funding", "portfolio", "balance"):
-            raise ValueError("导入类型须为 fills、ledger、funding、portfolio 或 balance。")
+        if kind not in ("fills", "ledger", "funding", "portfolio"):
+            raise ValueError("导入类型须为 fills、ledger、funding 或 portfolio。")
         if timestamp_unit not in ("ms", "s"):
             raise ValueError("时间戳单位须为 ms 或 s。")
-        if kind in ("portfolio", "balance") and timestamp_unit != "ms":
-            raise ValueError("官方净值和余额基准导入只接受毫秒时间戳或 ISO 日期；请转换秒时间戳后使用 --timestamp-unit ms。")
+        if kind == "portfolio" and timestamp_unit != "ms":
+            raise ValueError("官方净值导入只接受毫秒时间戳或 ISO 日期；请转换秒时间戳后使用 --timestamp-unit ms。")
         if field_map is not None and (not isinstance(field_map, dict) or
                 any(not isinstance(k, str) or not isinstance(v, str) for k, v in field_map.items())):
             raise ValueError("字段映射须为列名字符串组成的 JSON 对象。")
@@ -651,19 +767,16 @@ class Runtime:
             if kind == "portfolio":
                 result = import_portfolio_history(job.store, path, log=job.log,
                     cancel_check=job.check, now_ms=self.clock())
-            elif kind == "balance":
-                result = import_balance_anchors(job.store, path, log=job.log,
-                    cancel_check=job.check, now_ms=self.clock())
             else:
                 result = import_history_file(job.store, path, kind=kind, field_map=field_map, timestamp_unit=timestamp_unit,
                     start=job.start, end=job.end, log=job.log, cancel_check=job.check)
             job.status = "partial" if (result.get("rejected_count") or result.get("rejected_samples")
-                or (kind in ("portfolio", "balance") and result.get("status") not in ("ok", "imported"))) else "completed"
+                or (kind == "portfolio" and result.get("status") not in ("ok", "imported"))) else "completed"
             report = self._build(job, inventory=self._plan(job.wallet, job.start, job.end))
             return {**result, **report, "import": result}
 
     def run_demo(self, log=print, cancel=None):
-        from sample_data import demo_records, demo_portfolio
+        from sample_data import demo_records, demo_portfolio, demo_snapshot
         with self._job("demo", log, cancel, demo=True) as job:
             job.log("运行模拟数据演示：不会查询网络，不使用真实钱包或 AWS 凭证。")
             fills, ledger, funding = demo_records()
@@ -673,19 +786,13 @@ class Runtime:
                     job.store.put(kind, row, "import:SYNTHETIC_DEMO")
             job.store.set_meta("asset_meta", {"BTC": {"market_type": "perp", "pnl_token": "USDC"},
                                               "ETH": {"market_type": "perp", "pnl_token": "USDC"}})
-            job.store.set_meta("portfolio_history", demo_portfolio(fills, ledger, funding))
+            portfolio = demo_portfolio(fills, ledger, funding)
+            job.store.set_meta("portfolio_history", portfolio)
             job.store.set_meta("portfolio_meta", {"status": "ok", "user_abstraction": "disabled",
                 "scope_supported": True, "reference_ratio_supported": True,
                 "reference_equity_scope": "perp", "source": "SYNTHETIC_DEMO",
                 "warnings": ["资产快照为模拟数据，仅用于离线功能演示。"]})
-            # Demo has an explicitly defined initial cash balance; it is not
-            # inferred from a real portfolio sample or a hidden zero position.
-            job.store.set_meta("balance_anchors", [{
-                "time": min(r["time"] for r in fills) - 1, "balance_usdc": "10000",
-                "scope": "hypercore_usdc_cash", "source": "SYNTHETIC_DEMO",
-                "validated": True, "quality": ["synthetic_demo"]}])
-            job.store.set_meta("balance_anchor_meta", {"status": "ok", "source": "SYNTHETIC_DEMO",
-                "has_cached_anchors": True, "warnings": ["余额基准为模拟初始资金，仅供演示。"]})
+            job.store.set_meta("latest_snapshot", demo_snapshot(portfolio))
             job.store.commit()
             return self._build(job, demo=True)
 
@@ -719,6 +826,37 @@ class Runtime:
                 return {"rows": [json.loads(r[0]) for r in rows], "total": total, "page": page, "page_size": page_size, "pages": pages}
             finally:
                 db.close()
+
+    def analyze(self, log=print, cancel=None, *, live=True):
+        """Analyze the cache without writing a report (reconcile / metrics)."""
+        with self._job("analyze", log, cancel) as job:
+            client = self._info(cancel) if live else None
+            try:
+                model, _ = analyze_wallet(job.store, client, log=job.log, cancel_check=job.check, mae=self._mae())
+            finally:
+                if getattr(client, "session", None) is not None:
+                    client.session.close()
+            return model
+
+    def plugins(self, action="list", log=print, cancel=None):
+        status = plugin_status(self.config)
+        if action == "test":
+            wallet = wallet_address(self.config["wallet"])
+            settings = self.config["plugins"]
+            from sources import PLUGINS
+            for row in status:
+                check_cancel(cancel)
+                plugin = PLUGINS[row["name"]](settings.get(row["name"]))
+                if not plugin.available():
+                    row["test"] = {"ok": False, "detail": "未设置环境变量 " + row["env_key"] + " 或缺少必要配置"}
+                    continue
+                try:
+                    row["test"] = plugin.test(wallet)
+                except Exception as exc:
+                    row["test"] = {"ok": False, "detail": safe_message(exc)[:200]}
+                log(f"{row['name']}: " + ("可用" if row["test"]["ok"] else "不可用") + " · " + row["test"]["detail"])
+        return {"status": "completed", "plugins": status,
+                "note": "插件默认关闭；仅在 config.json plugins.<name>.enabled=true 或 --plugins 指定时运行，密钥只读环境变量。"}
 
     def doctor(self, log=print, cancel=None):
         check_cancel(cancel)

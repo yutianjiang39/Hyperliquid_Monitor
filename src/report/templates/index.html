@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN" data-bs-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__HL_TITLE__</title>
+<link rel="stylesheet" href="assets/vendor/tabler.min.css">
+<link rel="stylesheet" href="assets/vendor/tabulator_bootstrap5.min.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<div class="page">
+  <header class="navbar navbar-expand-md d-print-none">
+    <div class="container-xl">
+      <div class="navbar-brand pe-3">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>Hyperliquid 钱包分析</span>
+      </div>
+      <div class="d-flex flex-wrap align-items-center gap-2 me-auto">
+        <code id="wallet" class="wallet-code"></code>
+        <span id="badge-recon"></span>
+        <span id="badge-trunc"></span>
+      </div>
+      <div class="d-flex align-items-center gap-3">
+        <span class="text-secondary small" id="generated"></span>
+        <button class="btn btn-sm btn-ghost-secondary" id="theme" type="button" aria-label="切换深色/浅色">深色</button>
+      </div>
+    </div>
+  </header>
+  <div class="navbar-expand-md border-bottom">
+    <div class="container-xl">
+      <ul class="nav nav-underline" id="nav" role="tablist"></ul>
+    </div>
+  </div>
+  <div class="page-wrapper">
+    <div class="container-xl py-3">
+      <div class="filter-row" id="filters" aria-label="时间窗口">
+        <span class="text-secondary small me-2">时间窗口</span>
+        <div class="btn-group btn-group-sm" role="group" id="windows"></div>
+        <span class="text-secondary small ms-3" id="window-note"></span>
+      </div>
+      <main id="pages"></main>
+      <footer class="text-secondary small mt-4 mb-2" id="footer"></footer>
+    </div>
+  </div>
+</div>
+<script>window.HL_MODEL = __HL_MODEL__;</script>
+<script src="assets/vendor/echarts.min.js"></script>
+<script src="assets/vendor/tabulator.min.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+{
+  "files": {
+    "tabler.min.css": {
+      "package": "@tabler/core",
+      "version": "1.4.0",
+      "path": "dist/css/tabler.min.css",
+      "url": "https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/css/tabler.min.css",
+      "sha256": "7ef750bd10546a695d0b12767ad8048bd8f3ec5de7daefb1067f9d0daa3d1c9a",
+      "bytes": 536141
+    },
+    "tabler.min.js": {
+      "package": "@tabler/core",
+      "version": "1.4.0",
+      "path": "dist/js/tabler.min.js",
+      "url": "https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/js/tabler.min.js",
+      "sha256": "b60c76160e97624574dbb8cf10abe6aee9a6493b60096fdfc15dd1dd2bd99eb9",
+      "bytes": 83555
+    },
+    "echarts.min.js": {
+      "package": "echarts",
+      "version": "5.6.0",
+      "path": "dist/echarts.min.js",
+      "url": "https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js",
+      "sha256": "bf4a223524e40b77c304bec67e1222cf551f14880cf42c69dc046558e11c07b1",
+      "bytes": 1034102
+    },
+    "tabulator.min.js": {
+      "package": "tabulator-tables",
+      "version": "6.3.1",
+      "path": "dist/js/tabulator.min.js",
+      "url": "https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.1/dist/js/tabulator.min.js",
+      "sha256": "e952272c3b2afa4ebb60cef5db8cbe9cbaabaa52b50c3cd3d22993ca5215a6ff",
+      "bytes": 442820
+    },
+    "tabulator_bootstrap5.min.css": {
+      "package": "tabulator-tables",
+      "version": "6.3.1",
+      "path": "dist/css/tabulator_bootstrap5.min.css",
+      "url": "https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.1/dist/css/tabulator_bootstrap5.min.css",
+      "sha256": "1f5810a81211dcbf5e9d7ba835f1404a3f90746484408025a13edce055e33737",
+      "bytes": 39385
+    }
+  }
+}
