@@ -46,10 +46,7 @@ bash start.sh
 
 `start.bat --install`（Windows）或 `bash start.sh --install`（macOS / Linux）只创建 `.venv` 并安装依赖，不启动程序。安装只使用已有 Python，不安装 Python 本体，不请求管理员权限。
 
-| 依赖文件 | 内容 |
-| --- | --- |
-| `requirements.txt` | 运行所需，启动脚本自动安装 |
-| `requirements-extra.txt` | 可选：pytest（`self-test`）和 pyarrow（Reservoir 付费补数），需要时手动 `pip install -r requirements-extra.txt` |
+依赖都在 `requirements.txt` 一个文件里，包括 `self-test` 用的 pytest 和 Reservoir 付费补数用的 pyarrow，启动脚本会一并安装。
 
 **请使用终端窗口，避免 IDE 的纯文本输出面板或 Jupyter 输出区。** 它们通常无法提供交互终端所需的键盘、尺寸和鼠标事件。
 
@@ -82,7 +79,7 @@ python app.py doctor           # 环境自检
 | [使用手册](docs/usage.md) | 终端窗口、全部命令与可选开关、MAE/MFE、付费补数、第三方插件、导入、AWS 凭证、本地文件结构 |
 | [数据口径与指标](docs/methodology.md) | 三层数据来源、盯市对账、量化指标、报告页面、计算口径与代码结构 |
 | [常见问题与参考](docs/faq.md) | 安装、终端、AWS、报告相关问题，官方接口文档链接 |
-| [变更记录](CHANGELOG.md) | 各版本变更 |
+| [变更记录](docs/CHANGELOG.md) | 各版本变更 |
 
 ## 许可证
 

@@ -3,7 +3,8 @@
 ## 文件整理（2026-11-24）
 
 - 启动与安装脚本合并为 `start.bat`（Windows）和 `start.sh`（macOS / Linux）；加 `--install` 只安装或修复依赖。原 `start_windows.bat`、`start_macos_linux.sh`、`Start_macOS.command` 和 `scripts/` 下的安装脚本已删除。
-- `requirements-dev.txt` 与 `requirements-optional.txt` 合并为 `requirements-extra.txt`。
+- `requirements-dev.txt` 与 `requirements-optional.txt` 并入 `requirements.txt`，依赖只剩一个文件。
+- 变更记录移到 `docs/CHANGELOG.md`。
 - README 精简，详细说明移到 `docs/`（使用手册、数据口径与指标、常见问题与参考）。
 
 ## 第三轮：指标定义与计算修正（2026-11-24）
@@ -29,7 +30,7 @@
 
 - **指标总表**页：100 余项指标按“盈亏与成本 / 回合 / 收益 / 风险与尾部 / 回撤 / MAE·MFE”分组，跟随时间窗口切换；每项注明定义和来源（官方 / 日序列 / 成交 / 回合 / K 线）。
 - **可选 MAE/MFE**（`--mae` 或 `"mae": true`）：每个回合的最大浮亏 / 浮盈、MFE 捕获率。
-- **可选付费补数**（`backfill`，默认关闭）：只补 API 缺失的时间段，详见[付费补数](docs/usage.md#付费补数可选默认关闭)。
+- **可选付费补数**（`backfill`，默认关闭）：只补 API 缺失的时间段，详见[付费补数](usage.md#付费补数可选默认关闭)。
 - 分币种盈亏表、多空对比、盈利集中度帕累托曲线。
 - 官方对账、`tools/` 下的独立核查脚本。
 

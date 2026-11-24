@@ -1,4 +1,0 @@
-# Optional extras, not needed to run the app: pip install -r requirements-extra.txt
--r requirements.txt
-pytest>=8    # python app.py self-test
-pyarrow>=15  # Reservoir Parquet range reads (optional paid backfill)

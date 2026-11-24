@@ -67,7 +67,7 @@ python app.py plan --profile hyperliquid-history
 python app.py scan --accept-requester-pays --budget-gib 10
 python app.py import history.jsonl --kind fills
 python app.py import portfolio.json --kind portfolio --open
-python app.py self-test            # 运行 pytest（需 pip install -r requirements-extra.txt）
+python app.py self-test            # 运行 pytest（需 pip install -r requirements.txt）
 ```
 
 可选开关（只对本次运行生效，不写入配置）：
@@ -111,7 +111,7 @@ python app.py self-test            # 运行 pytest（需 pip install -r requirem
 - 按配置顺序执行，每个来源之后重算缺口，前一个已补上的不再付费读取。
 - Reservoir 的每日持仓快照会校正缺口：缺口内有快照时，补录成交被拆到快照两侧，质量页显示“由持仓快照校正的缺口”数。
 - 补来的记录来源标记为 `plugin:reservoir` 或 `s3:…`，同一条成交以官方 API 副本为准。
-- Reservoir 需要 `pip install -r requirements-extra.txt`（pyarrow）。Reservoir 公开文档里的目录结构版本不一，程序首次运行会列目录自动识别，结果缓存在钱包库中；也可用 `backfill.reservoir_prefix` 限定前缀。
+- Reservoir 需要 `pip install -r requirements.txt`（pyarrow）。Reservoir 公开文档里的目录结构版本不一，程序首次运行会列目录自动识别，结果缓存在钱包库中；也可用 `backfill.reservoir_prefix` 限定前缀。
 
 ### 第三方数据插件（可选，默认关闭）
 

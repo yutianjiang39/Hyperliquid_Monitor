@@ -128,7 +128,7 @@ def main(argv=None):
         try:
             import pytest  # noqa: F401
         except ModuleNotFoundError:
-            print("缺少 pytest：请运行 pip install -r requirements-extra.txt", file=sys.stderr)
+            print("缺少 pytest：请运行 pip install -r requirements.txt", file=sys.stderr)
             return 2
         return subprocess.call([sys.executable, "-m", "pytest", "-q", str(ROOT / "tests")], cwd=str(ROOT))
     from local_runtime import Runtime, Cancelled, safe_message
