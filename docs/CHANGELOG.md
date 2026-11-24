@@ -4,7 +4,8 @@
 
 - 启动与安装脚本合并为 `start.bat`（Windows）和 `start.sh`（macOS / Linux）；加 `--install` 只安装或修复依赖。原 `start_windows.bat`、`start_macos_linux.sh`、`Start_macOS.command` 和 `scripts/` 下的安装脚本已删除。
 - `requirements-dev.txt` 与 `requirements-optional.txt` 并入 `requirements.txt`，依赖只剩一个文件。
-- 变更记录移到 `docs/CHANGELOG.md`。
+- 变更记录移到 `docs/CHANGELOG.md`，`config.example.json` 移到 `docs/`。
+- `ui.py`、`local_runtime.py`、`sample_data.py` 移入 `src/`，根目录只保留 `app.py` 入口和启动脚本。
 - README 精简，详细说明移到 `docs/`（使用手册、数据口径与指标、常见问题与参考）。
 
 ## 第三轮：指标定义与计算修正（2026-11-24）

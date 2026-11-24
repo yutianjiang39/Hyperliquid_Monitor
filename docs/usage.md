@@ -193,7 +193,7 @@ aws configure --profile hyperliquid-history
 
 | 路径 | 内容 |
 | --- | --- |
-| `config.json` | 首次保存后生成，包含钱包、日期、目录、AWS profile 和预算；不纳入版本管理，字段可参考 `config.example.json` |
+| `config.json` | 首次保存后生成，包含钱包、日期、目录、AWS profile 和预算；不纳入版本管理，字段可参考 [`config.example.json`](config.example.json) |
 | `data/钱包地址/wallet_history.sqlite` | 去重后的原始缓存、API 游标和归档检查点 |
 | `data/钱包地址/archive_plan.json` | 归档清单，绑定钱包与冻结时间范围 |
 | `data/钱包地址/views.sqlite` | 窗口分页索引，生成报告时更新 |

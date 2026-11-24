@@ -11,6 +11,8 @@ import threading
 import webbrowser
 
 ROOT = Path(__file__).resolve().parent
+if str(ROOT / "src") not in sys.path:
+    sys.path.insert(0, str(ROOT / "src"))
 
 
 def parser():

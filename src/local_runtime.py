@@ -23,7 +23,7 @@ import threading
 import time
 import uuid
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 from collector import (HistoryStore, InfoClient, S3_BUCKET, S3_PREFIXES, HOUR_MS,
