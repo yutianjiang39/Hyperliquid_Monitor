@@ -112,7 +112,7 @@ def main(argv=None):
     command = args.command or "tui"
     if command in ("tui", "menu"):
         if not sys.stdin.isatty() or not sys.stdout.isatty():
-            print("终端窗口需要在真实终端中启动。请双击 start_windows.bat / Start_macOS.command，或在终端执行 bash start_macos_linux.sh。\n"
+            print("终端窗口需要在真实终端中启动。Windows 请双击 start.bat，macOS / Linux 请在终端执行 bash start.sh。\n"
                   "非交互环境可用 app.py demo、app.py run、app.py --help。", file=sys.stderr)
             return 2
         try:
@@ -128,7 +128,7 @@ def main(argv=None):
         try:
             import pytest  # noqa: F401
         except ModuleNotFoundError:
-            print("缺少 pytest：请运行 pip install -r requirements-dev.txt", file=sys.stderr)
+            print("缺少 pytest：请运行 pip install -r requirements-extra.txt", file=sys.stderr)
             return 2
         return subprocess.call([sys.executable, "-m", "pytest", "-q", str(ROOT / "tests")], cwd=str(ROOT))
     from local_runtime import Runtime, Cancelled, safe_message

@@ -1,10 +1,12 @@
-# 常见问题
+# 常见问题与参考
 
 [← 返回 README](../README.md)
 
+## 常见问题
+
 **找不到 Python / 版本太旧**：安装 Python 3.11/3.12，再重开终端；Windows 检查 PATH。启动器不会自动下载安装 Python 本体。
 
-**第一次安装失败**：先查看终端保留的错误，确认能访问 Python 包源。不要跳过依赖错误强行启动；修复后重新运行安装脚本即可。
+**第一次安装失败**：先查看终端保留的错误，确认能访问 Python 包源。不要跳过依赖错误强行启动；修复后运行 `start.bat --install`（Windows）或 `bash start.sh --install`（macOS / Linux）即可。
 
 **窗口较窄、按钮显示不全**：放大终端或缩小字体；设置区可滚动，推荐 120 × 40。
 
@@ -32,3 +34,18 @@
 **只复制 HTML 后没有明细**：请完整解压报告 ZIP，保留相邻 `data/exports/audit` 目录，再打开 `index.html`。
 
 **钱包为空/无记录**：确认是实际账户地址；API agent 地址和子账户地址不是同一个账户。
+
+## 参考文档
+
+- [Hyperliquid 历史归档](https://hyperliquid.gitbook.io/hyperliquid-docs/historical-data)
+- [Hyperliquid Info API](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint)
+- [资金流水接口](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/perpetuals)
+- [官方资产历史采样说明](https://hyperliquid.gitbook.io/hyperliquid-docs/trading/portfolio-graphs)
+- [开仓成本与盈亏](https://hyperliquid.gitbook.io/hyperliquid-docs/trading/entry-price-and-pnl)
+- [Hydromancer API](https://docs.hydromancer.xyz/)
+- [Dune API](https://docs.dune.com/api-reference/overview/introduction)
+- [统一账户余额口径](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/spot)
+- [节点原始格式](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/nodes/l1-data-schemas)
+- [Textual 后台任务](https://textual.textualize.io/guide/workers/)
+- [Python venv](https://docs.python.org/3/library/venv.html)
+- [Boto3 凭证配置](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html)

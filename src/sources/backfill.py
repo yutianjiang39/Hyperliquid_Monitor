@@ -100,7 +100,7 @@ def run_backfill(store, config, *, log=print, cancel_check=None, s3_factory=None
             results[source] = {"status": "over_budget", "note": str(exc)}
             log(f"付费补数 {source}：{exc}，已停止。")
         except ImportError as exc:
-            results[source] = {"status": "skipped", "note": f"缺少可选依赖：{exc.name}（pip install -r requirements-optional.txt）"}
+            results[source] = {"status": "skipped", "note": f"缺少可选依赖：{exc.name}（pip install -r requirements-extra.txt）"}
             log(f"付费补数 {source}：" + results[source]["note"])
     after = summarize(targets(store, settings.get("mode", "gaps"), now))
     return _save(store, {"status": "done", "time": now, "before": before, "after": after, "sources": results,
