@@ -39,6 +39,38 @@
       "url": "https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.1/dist/css/tabulator_bootstrap5.min.css",
       "sha256": "1f5810a81211dcbf5e9d7ba835f1404a3f90746484408025a13edce055e33737",
       "bytes": 39385
+    },
+    "inter-latin-wght.woff2": {
+      "package": "@fontsource-variable/inter",
+      "version": "5.2.5",
+      "path": "files/inter-latin-wght-normal.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource-variable/inter@5.2.5/files/inter-latin-wght-normal.woff2",
+      "sha256": "f052ee44c3728dfd23aba8a4567150bc314d23903026fbb6ad089422c2df56af",
+      "bytes": 48444
+    },
+    "inter.LICENSE.txt": {
+      "package": "@fontsource-variable/inter",
+      "version": "5.2.5",
+      "path": "LICENSE",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource-variable/inter@5.2.5/LICENSE",
+      "sha256": "18aabf190848725e2576eefb5c29ba06aac1029d02132252a7f312eac2e50cf3",
+      "bytes": 4314
+    },
+    "jetbrains-mono-latin-wght.woff2": {
+      "package": "@fontsource-variable/jetbrains-mono",
+      "version": "5.2.5",
+      "path": "files/jetbrains-mono-latin-wght-normal.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource-variable/jetbrains-mono@5.2.5/files/jetbrains-mono-latin-wght-normal.woff2",
+      "sha256": "18be452724bfdc236c074ca94a249a7f41a86752c7d04ab258ce9ed5651f6a7e",
+      "bytes": 40404
+    },
+    "jetbrains-mono.LICENSE.txt": {
+      "package": "@fontsource-variable/jetbrains-mono",
+      "version": "5.2.5",
+      "path": "LICENSE",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource-variable/jetbrains-mono@5.2.5/LICENSE",
+      "sha256": "18aabf190848725e2576eefb5c29ba06aac1029d02132252a7f312eac2e50cf3",
+      "bytes": 4314
     }
   }
 }

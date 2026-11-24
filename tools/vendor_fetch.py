@@ -24,6 +24,11 @@ FILES = {
     "echarts.min.js": ("echarts", "5.6.0", "dist/echarts.min.js"),
     "tabulator.min.js": ("tabulator-tables", "6.3.1", "dist/js/tabulator.min.js"),
     "tabulator_bootstrap5.min.css": ("tabulator-tables", "6.3.1", "dist/css/tabulator_bootstrap5.min.css"),
+    # Self-hosted UI / data fonts (SIL OFL 1.1); Latin subset only, CJK falls back to system fonts.
+    "inter-latin-wght.woff2": ("@fontsource-variable/inter", "5.2.5", "files/inter-latin-wght-normal.woff2"),
+    "inter.LICENSE.txt": ("@fontsource-variable/inter", "5.2.5", "LICENSE"),
+    "jetbrains-mono-latin-wght.woff2": ("@fontsource-variable/jetbrains-mono", "5.2.5", "files/jetbrains-mono-latin-wght-normal.woff2"),
+    "jetbrains-mono.LICENSE.txt": ("@fontsource-variable/jetbrains-mono", "5.2.5", "LICENSE"),
 }
 MIRRORS = (
     "https://cdn.jsdelivr.net/npm/{pkg}@{ver}/{path}",
@@ -59,7 +64,7 @@ def fetch(force=False):
             url = mirror.format(pkg=pkg, ver=ver, path=sub)
             try:
                 response = requests.get(url, timeout=60)
-                if response.status_code == 200 and len(response.content) > 1000:
+                if response.status_code == 200 and len(response.content) > 500:
                     break
             except requests.RequestException:
                 continue

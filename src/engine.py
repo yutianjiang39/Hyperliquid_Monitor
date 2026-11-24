@@ -312,8 +312,9 @@ def _base_operation(fill, asset_meta, wallet=None):
     if market_type == "perp" and pnl_token is None:
         quality.append("unknown_pnl_token")
     liquidation = fill.get("liquidation") if isinstance(fill.get("liquidation"), dict) else None
+    counterparty = False
     if liquidation and wallet and str(liquidation.get("liquidatedUser") or wallet).lower() != wallet:
-        liquidation = None  # counterparty to another account's liquidation
+        liquidation, counterparty = None, True  # counterparty to another account's liquidation
     adl = "auto-deleveraging" in str(fill.get("dir") or "").lower()
     if liquidation:
         quality.append("liquidation")
@@ -343,6 +344,7 @@ def _base_operation(fill, asset_meta, wallet=None):
         "dir_raw": fill.get("dir"), "side": fill.get("side"),
         "liquidation": bool(liquidation), "liquidation_mark_px": (liquidation or {}).get("markPx"),
         "liquidation_method": (liquidation or {}).get("method"), "adl": adl,
+        "liquidation_counterparty": counterparty,
         "maker": None if fill.get("crossed") is None else not fill.get("crossed"),
         "twap": fill.get("twapId") is not None,
     }
