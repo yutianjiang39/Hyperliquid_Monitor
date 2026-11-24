@@ -473,3 +473,7 @@ python app.py run --archive --accept-requester-pays --budget-gib 10 --open
 - [Python venv](https://docs.python.org/3/library/venv.html)
 - [Boto3 凭证配置](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html)
 
+
+## 许可证
+
+本项目代码以 [MIT 许可证](LICENSE) 发布。`src/vendor/` 下内置的 Tabler、Apache ECharts、Tabulator 以及 Inter、JetBrains Mono 字体仍按各自的许可证分发。
