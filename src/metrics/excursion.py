@@ -51,7 +51,7 @@ def _scan(seg, ladder, cover, sign):
     """Worst/best path value over one segment and the coarsest interval used."""
     start, end, qty, cost, realized = seg
     worst = best = None
-    best_t, coarsest, cursor_end = None, None, end
+    best_t, coarsest, cursor_end, holes = None, None, end, 0
     for interval in LADDER:
         if interval not in cover or cursor_end <= start:
             continue
@@ -73,11 +73,14 @@ def _scan(seg, ladder, cover, sign):
                 if best is None or b > best:
                     best, best_t = b, t
                 used = True
+            else:
+                # A missing bar inside the covered range: the extreme may be in the hole.
+                holes += 1
             t += step
         if used:
             coarsest = interval
         cursor_end = lo
-    return worst, best, best_t, coarsest, cursor_end > start
+    return worst, best, best_t, coarsest, cursor_end > start or holes > 0
 
 
 def excursions(campaigns, operations, ladder_for, *, limit=5000, log=None):
@@ -130,10 +133,13 @@ def excursions(campaigns, operations, ladder_for, *, limit=5000, log=None):
             "open_time": c["open_time"], "close_time": c["close_time"],
             "entry_notional": entry_peak, "pnl": pnl, "price_pnl": realized,
             "mae": mae, "mfe": mfe, "mae_pct": mae / entry_peak, "mfe_pct": mfe / entry_peak,
-            "mfe_time": mfe_t, "resolution": resolution, "coarse": coarse,
+            "mfe_time": mfe_t, "resolution": resolution, "coarse": coarse, "gapped": missing,
             "capture": realized / mfe if mfe > 0 else None,
         })
-    return {"rows": rows, "candidates": len(chosen), "no_candles": no_candles, **summarize(rows)}
+    eligible = sum(1 for c in campaigns if c.get("eligible_for_win_rate") and c.get("open_time"))
+    return {"rows": rows, "candidates": len(chosen), "eligible_total": eligible, "limit": limit,
+            "earliest_open": min((r["open_time"] for r in rows), default=None),
+            "no_candles": no_candles, **summarize(rows)}
 
 
 def _mean(xs):
@@ -156,6 +162,7 @@ def summarize(rows, since=None):
     captures = [r["capture"] for r in fine if r["capture"] is not None]
     return {
         "evaluated": len(rows), "coarse": len(rows) - len(fine),
+        "gapped": sum(1 for r in rows if r.get("gapped")),
         "resolution_counts": {iv: sum(1 for r in rows if r["resolution"] == iv) for iv in LADDER},
         "mae_pct_mean": _mean([r["mae_pct"] for r in fine]), "mae_pct_median": _median([r["mae_pct"] for r in fine]),
         "mfe_pct_mean": _mean([r["mfe_pct"] for r in fine]), "mfe_pct_median": _median([r["mfe_pct"] for r in fine]),

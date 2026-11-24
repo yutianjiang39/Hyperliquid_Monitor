@@ -97,19 +97,29 @@ def compose(snapshot, official_equity=None):
     # Official account value includes staked HYPE (delegated + pending) at mark.
     staking_value = _d((snapshot.get("staking") or {}).get("value_usd"))
     mode = snapshot.get("mode")
-    if mode in ("unifiedAccount", "portfolioMargin", "dexAbstraction"):
+    # Mode-specific notes: under unified / portfolio margin all balances and holds
+    # sit in the spot clearinghouse, so per-DEX user state is not an independent
+    # balance; dexAbstraction is a retired mode kept for old accounts. The rule
+    # below is an observed fit, validated per wallet by the residual only.
+    notes = {"unifiedAccount": "unified: balances/holds in spot clearinghouse; observed rule, check residual",
+             "portfolioMargin": "portfolio margin: balances/holds in spot clearinghouse; observed rule, check residual",
+             "dexAbstraction": "legacy dexAbstraction mode; observed rule, check residual"}
+    if mode in notes:
         rule, total = "spot_mark - usdc_hold + sum(dex accountValue) + staking", spot_value - usdc_hold + perp_value
     else:
         rule, total = "spot_mark + sum(dex accountValue) + staking", spot_value + perp_value
     total += staking_value
-    out = {"rule": rule, "spot_value": _s(spot_value), "perp_value": _s(perp_value),
+    out = {"rule": rule, "mode": mode, "mode_note": notes.get(mode, "standard: separate perp and spot balances"),
+           "spot_value": _s(spot_value), "perp_value": _s(perp_value),
            "usdc_hold": _s(usdc_hold), "staking_value": _s(staking_value), "estimated_total": _s(total),
+           "staking_unknown": bool((snapshot.get("staking") or {}).get("unavailable")),
            "official_equity": None if official_equity is None else _s(_d(official_equity))}
     if official_equity is not None:
         residual = _d(official_equity) - total
         out["residual"] = _s(residual)
         base = abs(_d(official_equity))
         out["residual_pct"] = _s(residual / base * 100) if base else None
+        out["rule_fits"] = bool(base) and abs(residual / base) <= Decimal("0.01")
     return out
 
 
@@ -117,7 +127,7 @@ def collect_snapshot(store, client, *, spot_prices=None, dexes=None, log=print, 
     """Fetch and persist one snapshot; failures of optional parts are recorded."""
     wallet = store.wallet
     stamp = int(time.time() * 1000) if now_ms is None else int(now_ms)
-    errors = {}
+    errors, fetched = {}, {}
 
     def call(name, body, default=None):
         if cancel_check:
@@ -127,6 +137,9 @@ def collect_snapshot(store, client, *, spot_prices=None, dexes=None, log=print, 
         except Exception as exc:
             errors[name] = str(exc)[:240]
             return default
+        finally:
+            # Each endpoint is a separate request; keep when it answered.
+            fetched[name] = int(time.time() * 1000) if now_ms is None else int(now_ms)
 
     if dexes is None:
         listed = call("perpDexs", {"type": "perpDexs"}, [None])
@@ -155,13 +168,24 @@ def collect_snapshot(store, client, *, spot_prices=None, dexes=None, log=print, 
     snapshot["vaults"] = [{"vault": v.get("vaultAddress"), "equity": v.get("equity"),
                            "locked_until_ms": v.get("lockedUntilTimestamp")}
                           for v in call("userVaultEquities", {"type": "userVaultEquities", "user": wallet}) or []]
-    staking = call("delegatorSummary", {"type": "delegatorSummary", "user": wallet}) or {}
+    staking = call("delegatorSummary", {"type": "delegatorSummary", "user": wallet})
     hype = token_price("HYPE", spot_prices)
-    delegated = _d(staking.get("delegated")) + _d(staking.get("undelegated")) + _d(staking.get("totalPendingWithdrawal"))
-    snapshot["staking"] = {**staking, "hype_price": _s(hype) if hype is not None else None,
-                           "value_usd": _s(delegated * hype) if hype is not None else None}
-    orders = call("frontendOpenOrders", {"type": "frontendOpenOrders", "user": wallet}) or []
-    snapshot["open_orders"] = len(orders)
+    if isinstance(staking, dict):
+        delegated = _d(staking.get("delegated")) + _d(staking.get("undelegated")) + _d(staking.get("totalPendingWithdrawal"))
+        snapshot["staking"] = {**staking, "hype_price": _s(hype) if hype is not None else None,
+                               "value_usd": _s(delegated * hype) if hype is not None else None}
+    else:
+        # Request failed: unknown, not "no staking".
+        snapshot["staking"] = {"value_usd": None, "unavailable": True}
+    orders = call("frontendOpenOrders", {"type": "frontendOpenOrders", "user": wallet})
+    snapshot["open_orders"] = len(orders) if isinstance(orders, list) else None
+    snapshot["open_orders_detail"] = [{
+        "coin": o.get("coin"), "side": o.get("side"), "px": o.get("limitPx"), "sz": o.get("sz"),
+        "order_type": o.get("orderType"), "reduce_only": o.get("reduceOnly"),
+        "trigger": o.get("isTrigger"), "trigger_px": o.get("triggerPx"),
+        "tpsl": o.get("isPositionTpsl"), "time": o.get("timestamp"), "oid": o.get("oid"),
+    } for o in (orders if isinstance(orders, list) else [])[:300] if isinstance(o, dict)]
+    snapshot["fetched_at"] = fetched
     fees = call("userFees", {"type": "userFees", "user": wallet}) or {}
     snapshot["fees"] = {"cross_rate": fees.get("userCrossRate"), "add_rate": fees.get("userAddRate"),
                         "referral_discount": fees.get("activeReferralDiscount"),

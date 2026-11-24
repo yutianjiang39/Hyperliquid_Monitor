@@ -12,12 +12,14 @@ from decimal import Decimal
 
 from account_history import latest_window_stats, official_series
 from engine import analyze_fills, ordered_fills
-from metrics.account import current_state, profile, quality
+from bisect import bisect_right
+
+from metrics.account import current_state, evidence_strength, profile, quality
 from metrics.excursion import excursions, summarize as excursion_stats
 from metrics.behavior import activity, by_coin, campaign_stats, costs
-from metrics.performance import performance, risk
+from metrics.performance import market_model, performance, risk
 from metrics.scorecard import scorecard
-from metrics.series import daily_series, window_slice
+from metrics.series import daily_series, window_slice, window_start
 from model.flows import classify_all, net_capital_flows
 from model.mtm import daily_perp_mtm
 from model.positions import build_paths, position_snapshots, summarize_paths
@@ -82,10 +84,13 @@ def analyze_wallet(store, client=None, *, log=print, cancel_check=None, now_ms=N
         mtm = daily_perp_mtm(fills, funding, paths, snapshot, meta, spot_prices,
                              lambda coin, a, b: candles(client, store, coin, a, b, "1d", log=log),
                              start, min(now, snapshot["time"]))
-    reconciliation = reconcile_pnl(official_perp, mtm, truncation) if mtm else {"status": "no_data", "intervals": []}
-    if mtm:
-        log(f"对账：官方 {reconciliation.get('official', 0):,.0f}，重建 {reconciliation.get('reconstructed', 0):,.0f}，"
-            f"残差 {reconciliation.get('residual', 0):,.0f}（{reconciliation['status']}）。")
+    reconciliation = (reconcile_pnl(official_perp, mtm, truncation, equity=official_equity) if mtm
+                      else {"status": "no_data", "intervals": []})
+    if mtm and reconciliation.get("official") is not None:
+        log(f"对账：官方 {reconciliation['official']:,.0f}，重建 {reconciliation['reconstructed']:,.0f}，"
+            f"残差 {reconciliation['residual']:,.0f}（{reconciliation['status']}）。")
+    elif mtm:
+        log(f"对账：可比官方采样点不足（{reconciliation['status']}）。")
 
     check()
     subs = [s["address"] for s in (snapshot or {}).get("sub_accounts", []) if s.get("address")]
@@ -102,24 +107,31 @@ def analyze_wallet(store, client=None, *, log=print, cancel_check=None, now_ms=N
         log(f"MAE/MFE：评估 {excursion['evaluated']:,} / {excursion['candidates']:,} 个完整回合，"
             f"精度不足 {excursion['coarse']:,} 个，缺 K 线 {excursion['no_candles']:,} 个。")
     exposure = (mtm or {}).get("days")
+    equity_at = _equity_lookup(days)
+    ledger_flows = _ledger_capital(flows)
+    benchmark = _benchmark(client, store, days, log)
     by_window, cards = {}, {}
     for window in WINDOWS:
         part = window_slice(days, window, now)
         stats = window_stats.get({"7d": "week", "30d": "month", "all": "allTime"}.get(window, ""), {})
-        # Fill-based pieces use the same window; daily rows end at their ``time``.
-        since = None if window == "all" or not part else part[0]["time"] - DAY_MS
+        # Fill-based pieces use the same window. An empty window stays empty:
+        # no daily rows must never fall back to the whole history.
+        start = window_start(window, now)
+        since = None if start is None else (part[0]["time"] - DAY_MS if part else start)
         ops = [o for o in engine["operations"] if since is None or (o.get("time") or 0) >= since]
         camps = [c for c in engine["campaigns"] if since is None or (c.get("close_time") or 0) >= since]
         fund = [e for e in funding if since is None or int(e["time"]) >= since]
-        w_perf = performance(part, official_pnl=stats.get("pnl"))
+        w_perf = performance(part, official_pnl=stats.get("pnl"), capital_flows=_xirr_flows(ledger_flows, part))
         w_risk = risk(part, exposure_days=exposure)
-        w_beh, w_act = campaign_stats(camps), activity(ops)
-        w_cost = costs(ops, fund, volume=w_act.get("volume"), snapshot=snapshot)
-        w_coins = by_coin(camps, ops, fund)
+        w_beh, w_act = campaign_stats(camps, equity_at=equity_at), activity(ops)
+        w_cost = costs(ops, fund, gross_trade_profit=w_beh.get("gross_trade_profit"), volume=w_act.get("volume"),
+                       snapshot=snapshot, prices=spot_prices)
+        w_coins = by_coin(camps, ops, fund, prices=spot_prices)
+        w_market = market_model(part, benchmark)
         cards[window] = scorecard(perf=w_perf, risk=w_risk, behavior=w_beh, activity=w_act, costs=w_cost,
                                   official=stats if window in ("7d", "30d", "all") else None,
                                   equity=current.get("equity"), coins=w_coins,
-                                  excursion=excursion_summary(excursion, since))
+                                  excursion=excursion_summary(excursion, since), market=w_market)
         by_window[window] = {
             "label": WINDOW_LABELS[window],
             "performance": {k: v for k, v in w_perf.items() if k not in ("monthly", "weekly", "twr_index")},
@@ -130,13 +142,19 @@ def analyze_wallet(store, client=None, *, log=print, cancel_check=None, now_ms=N
             "by_coin": w_coins[:200],
             "by_direction": w_beh.get("by_direction"),
             "concentration": w_beh.get("concentration"),
+            "market": w_market,
+            "trades": {k: w_beh.get(k) for k in ("wins", "losses", "flats", "win_rate_strict", "win_rate_strict_ci95",
+                                                 "break_even_win_rate", "current_streak", "last_20", "top_wins",
+                                                 "top_losses", "r", "independent_trades")},
+            "empty": not part,
         }
-    perf_all = performance(days, official_pnl=(window_stats.get("allTime") or {}).get("pnl"))
+    perf_all = performance(days, official_pnl=(window_stats.get("allTime") or {}).get("pnl"),
+                           capital_flows=_xirr_flows(ledger_flows, days))
     risk_all = risk(days, exposure_days=exposure)
-    behavior = campaign_stats(engine["campaigns"])
+    behavior = campaign_stats(engine["campaigns"], equity_at=equity_at)
     act = activity(engine["operations"], list(store.rows("orders")))
-    gross = sum(max(c["pnl"], 0) for c in perf_all.get("monthly", [])) or None
-    cost = costs(engine["operations"], funding, gross_pnl=gross, volume=act.get("volume"), snapshot=snapshot)
+    cost = costs(engine["operations"], funding, gross_trade_profit=behavior.get("gross_trade_profit"),
+                 volume=act.get("volume"), snapshot=snapshot, prices=spot_prices)
     prof = profile(behavior, act, risk_all, current)
     qual = quality(truncation, reconciliation, paths_summary, series, current,
                    (mtm or {}).get("flags"), store.get_meta("asset_meta_errors", []))
@@ -154,6 +172,9 @@ def analyze_wallet(store, client=None, *, log=print, cancel_check=None, now_ms=N
         "series": series, "windows": by_window, "scorecard": cards,
         "excursion": dict(excursion, rows=excursion["rows"][-3000:]) if excursion else None,
         "performance": perf_all, "risk": risk_all,
+        "market": market_model(days, benchmark),
+        "evidence": evidence_strength(days, behavior, perf_all.get("monthly_stability", {}).get("active_months")),
+        "capital": capital_summary(flows, now),
         "pnl_breakdown": _breakdown(reconciliation, cost, flows),
         "behavior": behavior, "activity": act, "costs": cost,
         "current": current, "profile": prof, "quality": qual,
@@ -164,6 +185,83 @@ def analyze_wallet(store, client=None, *, log=print, cancel_check=None, now_ms=N
         "engine_summary": engine["summary"], "engine_warnings": engine["warnings"],
     }
     return _plain(model), engine
+
+
+LEDGER_CLASSES = ("external", "subaccount", "vault")
+
+
+def _equity_lookup(days):
+    """equity_at(ms): last day-end equity strictly before ``ms`` (no look-ahead)."""
+    times = [d["time"] for d in days]
+
+    def at(ms):
+        if ms is None:
+            return None
+        i = bisect_right(times, ms - 1) - 1
+        return days[i]["equity"] if i >= 0 else None
+    return at
+
+
+def _ledger_capital(flows):
+    return sorted((int(f["time"]), float(f["amount_usd"])) for f in flows
+                  if f["class"] in LEDGER_CLASSES and f.get("amount_usd") is not None and f.get("time") is not None)
+
+
+def _xirr_flows(ledger, days):
+    """Ledger flows for XIRR when they explain the implied net flow of ``days``.
+
+    The implied flow (Δequity − ΔPnL) is the official truth; ledger rows give
+    the real timestamps. If they disagree by more than max(2%, $100) the
+    ledger is incomplete for this range and the implied daily flows are used.
+    """
+    if not days or not ledger:
+        return None
+    start = days[0].get("start", days[0]["time"] - DAY_MS)
+    inside = [(t, a) for t, a in ledger if start < t <= days[-1]["time"]]
+    implied = sum(d["flow"] for d in days)
+    booked = sum(a for _, a in inside)
+    if abs(booked - implied) > max(0.02 * abs(implied), 100.0):
+        return None
+    return inside
+
+
+def _benchmark(client, store, days, log):
+    """BTC daily closes over the series; {} when unavailable (no network, no cache)."""
+    if not days:
+        return {}
+    try:
+        bars = candles(client, store, "BTC", days[0]["time"] - 2 * DAY_MS, days[-1]["time"], "1d", log=log) or {}
+        return {int(t): float(v) for t, v in bars.items() if v not in (None, "")}
+    except Exception as exc:  # benchmark is optional; the report says why it is missing
+        log(f"BTC 基准 K 线不可用：{str(exc)[:80]}")
+        return {}
+
+
+def capital_summary(flows, now, recent_days=60):
+    """Gross deposits / withdrawals, net, peak net invested and recent reliance."""
+    rows = sorted((f for f in flows if f["class"] in ("external", "subaccount") and f.get("amount_usd") is not None),
+                  key=lambda f: int(f["time"] or 0))
+    dep = wd = net = peak = 0.0
+    recent_dep = recent_net = 0.0
+    approx = 0
+    for f in rows:
+        a = float(f["amount_usd"])
+        approx += bool(f.get("approx_value"))
+        if a > 0:
+            dep += a
+        else:
+            wd -= a
+        net += a
+        peak = max(peak, net)
+        if int(f["time"]) >= now - recent_days * DAY_MS:
+            recent_net += a
+            recent_dep += max(a, 0.0)
+    return {"deposited": dep, "withdrawn": wd, "net": net, "peak_net_invested": peak,
+            "withdrawn_to_deposited": wd / dep if dep else None,
+            "recent_days": recent_days, "recent_net": recent_net, "recent_deposited": recent_dep,
+            "recent_share_of_deposits": recent_dep / dep if dep else None,
+            "rows": len(rows), "approx_rows": approx, "classes": ["external", "subaccount"],
+            "note": "按真实流水逐笔统计；同日入金和出金分别计入，不用日净流量代替"}
 
 
 def _sum_by(rows, key):

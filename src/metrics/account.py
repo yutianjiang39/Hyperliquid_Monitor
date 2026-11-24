@@ -25,31 +25,93 @@ def current_state(snapshot, composition=None):
     gross = sum(p["notional"] or 0 for p in positions)
     long = sum(p["notional"] or 0 for p in positions if p["side"] == "long")
     hhi = sum(((p["notional"] or 0) / gross) ** 2 for p in positions) if gross else None
-    buckets = [{"bucket": f"永续 {d['dex'] or 'native'}", "value": _f(d.get("account_value"))}
+    # scope "trading": inside the official account value; "related": linked assets
+    # reported alongside (sub-accounts, vaults) that the official value does not include.
+    buckets = [{"bucket": f"永续 {d['dex'] or 'native'}", "value": _f(d.get("account_value")), "scope": "trading"}
                for d in snapshot.get("dexes", {}).values()]
     spot_value = sum(_f(r.get("value")) or 0 for r in snapshot.get("spot", []))
     if snapshot.get("mode") in ("unifiedAccount", "portfolioMargin", "dexAbstraction"):
         # Unified accounts keep perp margin as spot USDC "hold"; count it once.
         spot_value -= sum(_f(r.get("hold")) or 0 for r in snapshot.get("spot", []) if r.get("coin") == "USDC")
-    buckets.append({"bucket": "现货", "value": spot_value})
-    buckets.append({"bucket": "金库", "value": sum(_f(v.get("equity")) or 0 for v in snapshot.get("vaults", []))})
-    buckets.append({"bucket": "质押 HYPE", "value": _f((snapshot.get("staking") or {}).get("value_usd"))})
-    buckets.append({"bucket": "子账户", "value": sum(_f(s.get("account_value")) or 0 for s in snapshot.get("sub_accounts", []))})
-    equity = _f((composition or {}).get("official_equity")) or _f((composition or {}).get("estimated_total"))
+    buckets.append({"bucket": "现货", "value": spot_value, "scope": "trading"})
+    buckets.append({"bucket": "质押 HYPE", "value": _f((snapshot.get("staking") or {}).get("value_usd")), "scope": "trading"})
+    buckets.append({"bucket": "金库", "value": sum(_f(v.get("equity")) or 0 for v in snapshot.get("vaults", [])),
+                    "scope": "related"})
+    buckets.append({"bucket": "子账户", "value": sum(_f(s.get("account_value")) or 0 for s in snapshot.get("sub_accounts", [])),
+                    "scope": "related"})
+    official = _f((composition or {}).get("official_equity"))
+    # An official 0 is a real 0; only a missing official value falls back to the estimate.
+    equity = official if official is not None else _f((composition or {}).get("estimated_total"))
+    equity_source = "official" if official is not None else ("estimated" if equity is not None else None)
     near = [p for p in positions if p["liq_distance"] is not None]
+    dexes = list(snapshot.get("dexes", {}).values())
+    known = lambda key: [v for v in (_f(d.get(key)) for d in dexes) if v is not None]
+    margin_used, withdrawable = known("margin_used"), known("withdrawable")
+    upnl = [v for v in (_f(p.get("unrealized_pnl")) for p in positions) if v is not None]
+    margin_total = sum(margin_used) if margin_used else None
+    errors = snapshot.get("errors") or {}
     return {
         "time": snapshot.get("time"), "mode": snapshot.get("mode"), "equity": equity,
+        "equity_source": equity_source, "equity_state": None if equity is None else
+        ("negative" if equity < 0 else "zero" if equity == 0 else "positive"),
         "positions": positions, "position_count": len(positions),
         "gross_exposure": gross, "long_exposure": long, "short_exposure": gross - long,
-        "net_exposure": 2 * long - gross, "leverage": gross / equity if equity else None,
+        "net_exposure": 2 * long - gross,
+        # Account effective leverage: perp gross notional / official whole-account value.
+        "leverage": gross / equity if equity and equity > 0 else None,
+        "margin_used": margin_total,
+        "margin_ratio": margin_total / equity if margin_total is not None and equity and equity > 0 else None,
+        "withdrawable": sum(withdrawable) if withdrawable else None,
+        "unrealized_pnl": sum(upnl) if positions else 0.0, "unrealized_pnl_scope": "perp positions only",
+        "stress": stress_test(positions, equity),
         "concentration_hhi": hhi,
         "nearest_liquidation": min(near, key=lambda p: p["liq_distance"]) if near else None,
         "buckets": [b for b in buckets if b["value"]],
         "spot": snapshot.get("spot", []), "vaults": snapshot.get("vaults", []),
         "staking": snapshot.get("staking"), "sub_accounts": snapshot.get("sub_accounts", []),
-        "open_orders": snapshot.get("open_orders"), "composition": composition,
-        "errors": snapshot.get("errors") or {},
+        # None = the request failed (unknown), 0 = confirmed none.
+        "open_orders": None if "frontendOpenOrders" in errors else snapshot.get("open_orders"),
+        "open_orders_detail": snapshot.get("open_orders_detail") or [],
+        "fetched_at": snapshot.get("fetched_at") or {},
+        "composition": composition,
+        "errors": errors,
     }
+
+
+def stress_test(positions, equity, shocks=(0.05, 0.10, 0.20)):
+    """Instant adverse price move on every open perp position (no funding, no liquidation path).
+
+    Each position is moved against its own side; the loss is a linear
+    approximation from notional and ignores cross-position hedges' correlation.
+    """
+    rows = []
+    for shock in shocks:
+        loss = sum((p["notional"] or 0) * shock for p in positions)
+        rows.append({"shock": shock, "loss_usd": loss,
+                     "pct_equity": loss / equity if equity and equity > 0 else None,
+                     "liquidated": sum(1 for p in positions if p.get("liq_distance") is not None
+                                       and p["liq_distance"] <= shock)})
+    return {"scenarios": rows, "basis": "all positions move against their side at once"}
+
+
+def evidence_strength(days, behavior, months=None):
+    """Statistical evidence tier, separate from data completeness."""
+    active = sum(1 for d in days or [] if d.get("ret") is not None and abs(d.get("pnl") or 0) > 0)
+    trades = (behavior or {}).get("campaigns_evaluated") or 0
+    months = months or 0
+    if active >= 90 and trades >= 100 and months >= 6:
+        tier = "solid"
+    elif active >= 30 and trades >= 20 and months >= 2:
+        tier = "fair"
+    else:
+        tier = "thin"
+    need = {"solid": {"active_days": 90, "trades": 100, "months": 6},
+            "fair": {"active_days": 30, "trades": 20, "months": 2}}
+    nxt = "fair" if tier == "thin" else "solid" if tier == "fair" else None
+    gap = {k: max(0, v - {"active_days": active, "trades": trades, "months": months}[k])
+           for k, v in need[nxt].items()} if nxt else {}
+    return {"tier": tier, "active_days": active, "trades": trades, "months": months,
+            "next_tier": nxt, "missing": gap, "thresholds": need}
 
 
 PROFILE_RULES = {
@@ -104,6 +166,10 @@ def quality(truncation, reconciliation, paths_summary, series, current, mtm_flag
         "series_sources": {s: sum(1 for d in (series or {}).get("days", []) if d["source"] == s)
                            for s in ("official", "hybrid", "interpolated")},
         "skipped_return_days": (series or {}).get("skipped_return_days"),
+        "return_base_floor": (series or {}).get("min_base"),
+        # Share of daily rows that are not bracketed by official samples on both ends.
+        "interpolated_share": (sum(1 for d in (series or {}).get("days", []) if d["source"] != "official")
+                               / len((series or {}).get("days")) if (series or {}).get("days") else None),
         "composition": (current or {}).get("composition"),
         "snapshot_errors": (current or {}).get("errors"),
         "mtm_flags": mtm_flags or {}, "meta_errors": meta_errors or [],

@@ -43,7 +43,12 @@ def daily_perp_mtm(ordered_fills, funding, paths, snapshot, meta, spot_prices, c
     days = list(range(first_day, day_floor(now) + DAY_MS, DAY_MS))
     by_day = {d: defaultdict(lambda: ZERO) for d in days}
     by_coin = defaultdict(lambda: ZERO)
-    flags = {"mark_fallback": [], "fx_converted": [], "no_mark": [], "meta_error": [], "gap_imputed": []}
+    # fx_converted: valued at the CURRENT token price over the whole history (estimate).
+    # unknown_token / fx_unknown: settlement unit or its price unknown; still
+    # booked at 1:1 so the curve stays continuous, but published as an estimate.
+    # held_without_fills: a position with no visible fill is assumed held since the start.
+    flags = {"mark_fallback": [], "fx_converted": [], "no_mark": [], "meta_error": [], "gap_imputed": [],
+             "unknown_token": [], "fx_unknown": [], "held_without_fills": []}
     snapshot_marks = {p["coin"]: _d(p["mark_px"]) for d in (snapshot or {}).get("dexes", {}).values()
                       for p in d["positions"]}
     fills_by_coin = defaultdict(list)
@@ -62,10 +67,18 @@ def daily_perp_mtm(ordered_fills, funding, paths, snapshot, meta, spot_prices, c
         market = market_for(coin, meta)
         if market.get("meta_error"):
             flags["meta_error"].append(coin)
-        token = market.get("pnl_token") or "USDC"
-        fx = token_price(token, spot_prices) or Decimal(1)
-        if token != "USDC" and fx != 1:
+        token = market.get("pnl_token")
+        if token is None:
+            flags["unknown_token"].append(coin)
+            token = "USDC"
+        fx = token_price(token, spot_prices)
+        if fx is None:
+            flags["fx_unknown"].append(coin)
+            fx = Decimal(1)
+        elif token != "USDC" and fx != 1:
             flags["fx_converted"].append(coin)
+        if not fills_by_coin.get(coin) and path is not None and path.current:
+            flags["held_without_fills"].append(coin)
         closes = {k: _d(v) for k, v in (candle_fn(coin, first_day - DAY_MS, now) or {}).items()}
         coin_fills = _with_imputed_gaps(fills_by_coin.get(coin, []), path, first_day, closes,
                                         snapshot_marks.get(coin) or _d(market.get("mark_px")))
@@ -111,7 +124,13 @@ def daily_perp_mtm(ordered_fills, funding, paths, snapshot, meta, spot_prices, c
                 volume += abs(size) * px
                 fee = _d(fill.get("fee")) or ZERO
                 fee_token = fill.get("feeToken") or token
-                fees += fee if fee_token in (token, "USDC") else fee * (token_price(fee_token, spot_prices) or ZERO)
+                if fee_token in (token, "USDC"):
+                    fees += fee
+                else:
+                    fee_px = token_price(fee_token, spot_prices)
+                    if fee_px is None and fee:
+                        flags["fx_unknown"].append(coin)
+                    fees += fee * (fee_px or ZERO)
                 realized += _d(fill.get("closedPnl")) or ZERO
                 last_px = px
                 index += 1

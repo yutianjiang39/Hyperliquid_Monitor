@@ -93,26 +93,38 @@ def detect_truncation(fills, paths, official, window_stats, scope="perp"):
     return {"head_truncated": head, "available_from_ms": first_fill, "official_start_ms": official_start,
             "visible_volume": _num(visible_vlm), "official_volume": _num(official_vlm),
             "volume_coverage": _num(coverage), "fill_gaps": len(gaps), "evidence": evidence,
-            "status": "api_visible_truncated" if head else ("api_visible_gaps" if gaps else "complete")}
+            # "No gap detected" is not proof of a complete lifetime history: the
+            # API only exposes recent fills and an exact round trip leaves no break.
+            "status": "api_visible_truncated" if head else ("api_visible_gaps" if gaps else "no_gap_detected")}
 
 
-def _cumulative(days):
-    """Reconstructed cumulative PnL as a function of time (linear within a day)."""
+def _cumulative(days, key="pnl", end=None):
+    """Reconstructed cumulative ``key`` as a function of time (linear within a row).
+
+    Each row covers [time, time + 1 day) except the last, which ends at
+    ``end`` (the reconstruction's ``now``): its value already runs to ``end``,
+    so it is spread over that partial span and not rescaled a second time.
+    """
     times, values, total = [], [], ZERO
     for day in days:
         times.append(day["time"])
         values.append(total)
-        total += day["pnl"]
-    end = days[-1]["time"] + DAY_MS if days else 0
-    pnl = [d["pnl"] for d in days]
+        total += Decimal(day.get(key) or 0)
+    stop = days[-1]["time"] + DAY_MS if days else 0
+    if end is not None and days and days[-1]["time"] < end < stop:
+        stop = end
+    amounts = [Decimal(d.get(key) or 0) for d in days]
+    spans = [DAY_MS] * len(days)
+    if days:
+        spans[-1] = max(1, stop - times[-1])
 
     def at(t):
         if not times or t <= times[0]:
             return ZERO
-        if t >= end:
+        if t >= stop:
             return total
         index = bisect_right(times, t) - 1
-        return values[index] + pnl[index] * Decimal(t - times[index]) / DAY_MS
+        return values[index] + amounts[index] * min(Decimal(1), Decimal(t - times[index]) / spans[index])
     return at
 
 
@@ -129,21 +141,30 @@ def _thin(points, min_gap):
     return kept
 
 
-def reconcile_pnl(official, mtm, truncation=None, now=None, interval_ms=7 * DAY_MS):
+def reconcile_pnl(official, mtm, truncation=None, now=None, interval_ms=7 * DAY_MS, equity=None):
     """Compare official cumulative PnL with the MTM reconstruction.
 
     Intervals run between consecutive official samples inside the
     reconstructed range, merged to at least ``interval_ms`` because the
     reconstruction is daily while recent official samples are intraday. The
-    range before ``mtm["start"]`` is official-only.
+    range before ``mtm["start"]`` is official-only. ``components`` cover the
+    same first-to-last official sample span as the residual, so
+    price_pnl − fees + funding equals the reconstructed total exactly.
+    Fewer than two comparable official samples give ``insufficient_overlap``.
     """
     days = mtm.get("days") or []
     if not official or not days:
         return {"status": "no_data", "intervals": []}
     start, end = mtm["start"], min(now or mtm["end"], mtm["end"])
-    recon = _cumulative(days)
+    recon = _cumulative(days, end=mtm.get("end"))
     points = _thin([p for p in official if start <= p["time"] <= end], interval_ms)
-    official_total = points[-1]["cum_pnl"] - points[0]["cum_pnl"] if len(points) > 1 else ZERO
+    if len(points) < 2:
+        return {"status": "insufficient_overlap", "reasons": ["insufficient_overlap"], "comparable_points": len(points),
+                "start_ms": points[0]["time"] if points else start, "end_ms": points[-1]["time"] if points else end,
+                "official": None, "reconstructed": None, "residual": None, "residual_pct": None,
+                "components": {}, "official_only": None, "intervals": [],
+                "interval_status": {"ok": 0, "warn": 0, "fail": 0}}
+    official_total = points[-1]["cum_pnl"] - points[0]["cum_pnl"]
     # An interval is judged against its own size, but never tighter than 0.5%
     # of the whole period, so a flat week is not failed for a few dollars.
     floor = abs(official_total) * Decimal("0.005")
@@ -154,10 +175,13 @@ def reconcile_pnl(official, mtm, truncation=None, now=None, interval_ms=7 * DAY_
         intervals.append({"start_ms": a["time"], "end_ms": b["time"], "official": _num(off),
                           "reconstructed": _num(rec), "residual": _num(off - rec),
                           "status": "ok" if abs(off - rec) <= floor else status_for(off - rec, off)})
-    recon_total = recon(points[-1]["time"]) - recon(points[0]["time"]) if len(points) > 1 else ZERO
+    recon_total = recon(points[-1]["time"]) - recon(points[0]["time"])
     residual = official_total - recon_total
-    components = {key: _num(sum((d[key] for d in days), ZERO))
-                  for key in ("price_pnl", "fees", "funding", "realized", "volume", "imputed_notional")}
+    a_ms, b_ms = points[0]["time"], points[-1]["time"]
+    components = {}
+    for key in ("price_pnl", "fees", "funding", "realized", "volume", "imputed_notional"):
+        part = _cumulative(days, key, end=mtm.get("end"))
+        components[key] = _num(part(b_ms) - part(a_ms))
     before = [p for p in official if p["time"] < start]
     official_only = None
     if before:
@@ -170,11 +194,16 @@ def reconcile_pnl(official, mtm, truncation=None, now=None, interval_ms=7 * DAY_
         reasons.append("imputed_fill_gaps")
     if truncation and truncation.get("head_truncated"):
         reasons.append("head_truncated")
+    scale = abs(_d(equity) or ZERO)
     return {
-        "status": status, "reasons": reasons,
-        "start_ms": points[0]["time"] if points else start, "end_ms": points[-1]["time"] if points else end,
+        "status": status, "reasons": reasons, "comparable_points": len(points),
+        "start_ms": a_ms, "end_ms": b_ms,
         "official": _num(official_total), "reconstructed": _num(recon_total), "residual": _num(residual),
         "residual_pct": _num(residual / official_total) if official_total else None,
+        # The ok/warn/fail rule is max(1%, $100); for small accounts read the gap against equity too.
+        "residual_abs": _num(abs(residual)),
+        "residual_pct_equity": _num(abs(residual) / scale) if scale else None,
+        "tolerance": {"ok_pct": _num(OK_PCT), "ok_abs": _num(OK_ABS), "warn_pct": _num(WARN_PCT)},
         "components": components, "official_only": official_only, "intervals": intervals,
         "interval_status": {s: sum(1 for i in intervals if i["status"] == s) for s in ("ok", "warn", "fail")},
     }
